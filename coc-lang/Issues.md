@@ -22,4 +22,4 @@ But following code prints nothing:
     for (int i = 1; i < buf_len(buf); i++)
         printf("%d\n", buf[i]);
 ```
-
+RESOLVED!
