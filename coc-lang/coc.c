@@ -140,7 +140,7 @@ typedef enum TokenKind {
 	// ...
 } TokenKind;
 
-size_t copy_taken_kind_str (char* dest, size_t dest_size, TokenKind kind) {
+size_t copy_token_kind_str (char* dest, size_t dest_size, TokenKind kind) {
     size_t n = 0;
     switch (kind) {
         case 0:
