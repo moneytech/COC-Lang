@@ -8,7 +8,7 @@ typedef enum TypespecKind {
     TYPESPEC_NAME,
     TYPESPEC_FUNC,
     TYPESPEC_ARRAY,
-    TYPESPEC_POINTER,
+    TYPESPEC_PTR,
 } TypespecKind;
 
 typedef struct FuncTypespec {
@@ -17,15 +17,22 @@ typedef struct FuncTypespec {
     Typespec *ret;
 } FuncTypespec;
 
+typedef struct PtrTypespec {
+    Typespec *elem;
+} PtrTypespec;
+
+typedef struct ArrayTypespec {
+    Typespec *elem;
+    Expr *size;
+} ArrayTypespec;
+
 struct Typespec {
     TypespecKind kind;
-    struct {
+    union {
         const char *name;
         FuncTypespec func;
-        struct {
-            Typespec *base;
-            Expr *size;
-        };
+        PtrTypespec ptr;
+        ArrayTypespec array;
     };
 };
 
@@ -90,10 +97,10 @@ struct Decl {
     const char *name;
     union {
         EnumDecl enum_decl;
-        AggregateDecl aggregate_decl;
-        FuncDecl func_decl;
+        AggregateDecl aggregate;
+        FuncDecl func;
         TypedefDecl typedef_decl;
-        VarDecl var_decl;
+        VarDecl var;
         ConstDecl const_decl;
     };
 };
