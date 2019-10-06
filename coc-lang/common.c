@@ -1,14 +1,3 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <math.h>
-#include <ctype.h>
-#include <string.h>
-#include <stdarg.h>
-
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
 // Custom Utility Functions:
