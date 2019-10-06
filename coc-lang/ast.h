@@ -3,6 +3,11 @@ typedef struct Stmt Stmt;
 typedef struct Decl Decl;
 typedef struct Typespec Typespec;
 
+typedef struct StmtBlock {
+    Stmt **stmts;
+    size_t num_stmts;
+} StmtBlock;
+
 typedef enum TypespecKind {
     TYPESPEC_NONE,
     TYPESPEC_NAME,
@@ -56,11 +61,12 @@ typedef struct FuncDecl {
     FuncParam *params;
     size_t num_params;
     Typespec *ret_type;
+    StmtBlock block;
 } FuncDecl;
 
 typedef struct EnumItem {
     const char *name;
-    Typespec *type;
+    Expr *expr;
 } EnumItem;
 
 typedef struct EnumDecl {
@@ -193,18 +199,17 @@ typedef enum StmtKind {
     STMT_BLOCK,
     STMT_IF,
     STMT_WHILE,
+    STMT_DO_WHILE,
     STMT_FOR,
-    STMT_DO,
     STMT_SWITCH,
     STMT_ASSIGN,
-    STMT_AUTO_ASSIGN,
+    STMT_INIT,
     STMT_EXPR,
 } StmtKind;
 
-typedef struct StmtBlock {
-    size_t num_stmts;
-    Stmt **stmts;
-} StmtBlock;
+typedef struct ReturnStmt {
+    Expr *expr;
+} ReturnStmt;
 
 typedef struct ElseIf {
     Expr *cond;
@@ -212,7 +217,7 @@ typedef struct ElseIf {
 } ElseIf;
 
 typedef struct IfStmt {
-    Expr *expr;
+    Expr *cond;
     StmtBlock then_block;
     ElseIf *elseifs;
     size_t num_elseifs;
@@ -220,19 +225,21 @@ typedef struct IfStmt {
 } IfStmt;
 
 typedef struct WhileStmt {
-    Expr *expr;
+    Expr *cond;
     StmtBlock block;
 } WhileStmt;
 
 typedef struct ForStmt {
     StmtBlock init;
-    Expr *expr;
+    Expr *cond;
     StmtBlock next;
+    StmtBlock block;
 } ForStmt;
 
 typedef struct SwitchCase {
     Expr **exprs;
     size_t num_exprs;
+    int is_default;
     StmtBlock block;
 } SwitchCase;
 
@@ -248,19 +255,22 @@ typedef struct AssignStmt {
     Expr *right;
 } AssignStmt;
 
-typedef struct AutoAssignStmt {
+typedef struct InitStmt {
     const char *name;
     Expr *expr;
-} AutoAssignStmt;
+} InitStmt;
 
 struct Stmt {
     StmtKind kind;
     union {
+        ReturnStmt return_stmt;
+        StmtBlock block;
         IfStmt if_stmt;
         ForStmt for_stmt;
         WhileStmt while_stmt;
         SwitchStmt switch_stmt;
         AssignStmt assign;
-        AutoAssignStmt autoassign;
+        InitStmt init;
+        Expr *expr;
     };
 };

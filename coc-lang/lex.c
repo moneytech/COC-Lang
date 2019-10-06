@@ -37,29 +37,44 @@ typedef enum TokenMod {
     TOKENMOD_CHAR,
 } TokenMod;
 
+const char *token_kind_names[] = {
+    [TOKEN_EOF] = "EOF",
+    [TOKEN_INT] = "int",
+    [TOKEN_FLOAT] = "float",
+    [TOKEN_STR] = "string",
+    [TOKEN_NAME] = "name",
+    [TOKEN_LSHIFT] = "<<",
+    [TOKEN_RSHIFT] = ">>",
+    [TOKEN_EQ] = "==",
+    [TOKEN_NOTEQ] = "!=",
+    [TOKEN_LTEQ] = "<=",
+    [TOKEN_GTEQ] = ">=",
+    [TOKEN_AND] = "&&",
+    [TOKEN_OR] = "||",
+    [TOKEN_INC] = "++",
+    [TOKEN_DEC] = "--",
+    [TOKEN_COLON_ASSIGN] = ":=",
+    [TOKEN_ADD_ASSIGN] = "+=",
+    [TOKEN_SUB_ASSIGN] = "-=",
+    [TOKEN_OR_ASSIGN] = "|=",
+    [TOKEN_LSHIFT_ASSIGN] = "<<=",
+    [TOKEN_RSHIFT_ASSIGN] = ">>=",
+    [TOKEN_AND_ASSIGN] = "&=",
+    [TOKEN_XOR_ASSIGN] = "^=",
+    [TOKEN_DIV_ASSIGN] = "/=",
+    [TOKEN_MOD_ASSIGN] = "%=",
+};
+
 size_t copy_token_kind_str(char *dest, size_t dest_size, TokenKind kind) {
     size_t n = 0;
-    switch (kind) {
-    case 0:
-        n = snprintf(dest, dest_size, "end of file");
-        break;
-    case TOKEN_INT:
-        n = snprintf(dest, dest_size, "integer");
-        break;
-    case TOKEN_FLOAT:
-        n = snprintf(dest, dest_size, "float");
-        break;
-    case TOKEN_NAME:
-        n = snprintf(dest, dest_size, "name");
-        break;
-    default:
-        if (kind < 128 && isprint(kind)) {
-            n = snprintf(dest, dest_size, "%c", kind);
-        } 
-        else {
-            n = snprintf(dest, dest_size, "<ASCII %d>", kind);
-        }
-        break;
+    if (kind < sizeof(token_kind_names)/sizeof(*token_kind_names) && token_kind_names[kind]) {
+        n = snprintf(dest, dest_size, "%s", token_kind_names[kind]);
+    } 
+    else if (kind < 128 && isprint(kind)) {
+        n = snprintf(dest, dest_size, "%c", kind);
+    } 
+    else {
+        n = snprintf(dest, dest_size, "<ASCII %d>", kind);
     }
     return n;
 }
@@ -235,6 +250,7 @@ void scan_str() {
         char val = *stream;
         if (val == '\n') {
             syntax_error("String literal cannot contain newline");
+            break;
         } 
         else if (val == '\\') {
             stream++;
@@ -378,23 +394,6 @@ void init_stream(const char *str) {
     next_token();
 }
 
-void print_token(Token token) {
-    switch (token.kind) {
-    case TOKEN_INT:
-        printf("TOKEN INT: %" PRIu64 "\n", token.int_val);
-        break;
-    case TOKEN_FLOAT:
-        printf("TOKEN FLOAT: %f\n", token.float_val);
-        break;
-    case TOKEN_NAME:
-        printf("TOKEN NAME: %.*s\n", (int)(token.end - token.start), token.start);
-        break;
-    default:
-        printf("TOKEN '%c'\n", token.kind);
-        break;
-    }
-}
-
 // Utility functions for lexing and parsing
 int is_token(TokenKind kind) {
     return token.kind == kind;
@@ -495,7 +494,9 @@ void lex_test() {
     assert_token_eof();
 }
 
-#undef assert_token_eof
-#undef assert_token_int
-#undef assert_token_name
 #undef assert_token
+#undef assert_token_name
+#undef assert_token_int
+#undef assert_token_float
+#undef assert_token_str
+#undef assert_token_eof
