@@ -163,7 +163,7 @@ Expr *parse_expr_base() {
 }
 
 bool is_unary_op() {
-    return is_token(TOKEN_ADD) || is_token(TOKEN_SUB) || is_token(TOKEN_MUL) || is_token(TOKEN_BAND);
+    return is_token(TOKEN_ADD) || is_token(TOKEN_SUB) || is_token(TOKEN_MUL) || is_token(TOKEN_AND);
 }
 
 Expr *parse_expr_unary() {
@@ -221,16 +221,16 @@ Expr *parse_expr_cmp() {
 
 Expr *parse_expr_and() {
     Expr *expr = parse_expr_cmp();
-    while (match_token(TOKEN_AND)) {
-        expr = expr_binary(TOKEN_AND, expr, parse_expr_cmp());
+    while (match_token(TOKEN_AND_AND)) {
+        expr = expr_binary(TOKEN_AND_AND, expr, parse_expr_cmp());
     }
     return expr;
 }
 
 Expr *parse_expr_or() {
     Expr *expr = parse_expr_and();
-    while (match_token(TOKEN_OR)) {
-        expr = expr_binary(TOKEN_OR, expr, parse_expr_and());
+    while (match_token(TOKEN_OR_OR)) {
+        expr = expr_binary(TOKEN_OR_OR, expr, parse_expr_and());
     }
     return expr;
 }
@@ -421,6 +421,10 @@ Stmt *parse_stmt() {
         return stmt_continue();
     } 
     else {
+        Decl *decl = parse_decl_optional();
+        if (decl) {
+            return stmt_decl(decl);
+        }
         Stmt *stmt = parse_simple_stmt();
         expect_token(TOKEN_SEMICOLON);
         return stmt;
@@ -537,7 +541,7 @@ Decl *parse_decl_func() {
     return decl_func(name, ast_dup(params, buf_sizeof(params)), buf_len(params), ret_type, block);
 }
 
-Decl *parse_decl() {
+Decl *parse_decl_optional() {
     if (match_keyword(enum_keyword)) {
         return parse_decl_enum();
     } 
@@ -560,9 +564,16 @@ Decl *parse_decl() {
         return parse_decl_func();
     } 
     else {
-        fatal_syntax_error("Expected declaration keyword, got %s", token_info());
         return NULL;
     }
+}
+
+Decl *parse_decl() {
+    Decl *decl = parse_decl_optional();
+    if (!decl) {
+        fatal_syntax_error("Expected declaration keyword, got %s.", token_info());
+    }
+    return decl;
 }
 
 void parse_test() {
@@ -583,6 +594,7 @@ void parse_test() {
         "typedef Vectors = Vector[1+2]",
         "func f() { do { print(42); } while(1); }",
         "typedef T = (func(int):int)[16]",
+        "func f() { enum E { A, B, C } return 42; }",
     };
     for (const char **it = decls; it != decls + sizeof(decls)/sizeof(*decls); it++) {
         init_stream(*it);
