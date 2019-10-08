@@ -220,7 +220,7 @@ void scan_int() {
     }
     uint64_t val = 0;
     for (;;) {
-        uint64_t digit = char_to_digit[*stream];
+        uint64_t digit = char_to_digit[*(unsigned char *)stream];
         if (digit == 0 && *stream != '0') {
             break;
         }
@@ -297,7 +297,7 @@ void scan_char() {
     } 
     else if (*stream == '\\') {
         stream++;
-        val = escape_to_char[*stream];
+        val = escape_to_char[*(unsigned char *)stream];
         if (val == 0 && *stream != '0') {
             syntax_error("Invalid char literal escape '\\%c'", *stream);
         }
@@ -330,7 +330,7 @@ void scan_str() {
         } 
         else if (val == '\\') {
             stream++;
-            val = escape_to_char[*stream];
+            val = escape_to_char[*(unsigned char *)stream];
             if (val == 0 && *stream != '0') {
                 syntax_error("Invalid string literal escape '\\%c'", *stream);
             }
@@ -540,7 +540,7 @@ void keyword_test() {
 
 void lex_test() {
     keyword_test();
-    
+
     // Integer literal tests
     init_stream("0 18446744073709551615 0xffffffffffffffff 042 0b1111");
     assert_token_int(0);
