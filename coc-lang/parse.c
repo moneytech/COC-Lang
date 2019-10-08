@@ -67,6 +67,7 @@ Expr *parse_expr_compound(Typespec *type) {
             buf_push(args, parse_expr());
         }
     }
+    expect_token('}');
     return expr_compound(type, ast_dup(args, buf_sizeof(args)), buf_len(args));
 }
 
@@ -207,7 +208,7 @@ Expr *parse_expr_cmp() {
 Expr *parse_expr_and() {
     Expr *expr = parse_expr_cmp();
     while (match_token(TOKEN_AND)) {
-        expr = expr_binary(TOKEN_AND, expr, parse_expr_and());
+        expr = expr_binary(TOKEN_AND, expr, parse_expr_cmp());
     }
     return expr;
 }
@@ -233,30 +234,6 @@ Expr *parse_expr_ternary() {
 
 Expr *parse_expr() {
     return parse_expr_ternary();
-}
-
-Decl *parse_decl_enum() {
-    const char *name = token.name;
-    expect_token(TOKEN_NAME);
-    expect_token('{');
-    EnumItem *items = NULL;
-    while (!is_token_eof() && !is_token('}')) {
-        const char *item_name = token.name;
-        expect_token(TOKEN_NAME);
-        Expr *expr = NULL;
-        if (match_token('=')) {
-            expr = parse_expr();
-        }
-        buf_push(items, (EnumItem){name, expr});
-    }
-    expect_token('}');
-    return decl_enum(name, ast_dup(items, buf_sizeof(items)), buf_len(items));
-}
-
-const char *parse_name() {
-    const char *name = token.name;
-    expect_token(TOKEN_NAME);
-    return name;
 }
 
 Expr *parse_paren_expr() {
@@ -310,12 +287,42 @@ Stmt *parse_stmt_do_while() {
     return stmt;
 }
 
+int is_assign_op() {
+    return TOKEN_FIRST_ASSIGN <= token.kind && token.kind <= TOKEN_LAST_ASSIGN;
+}
+
+Stmt *parse_simple_stmt() {
+    Expr *expr = parse_expr();
+    Stmt *stmt;
+    if (match_token(TOKEN_COLON_ASSIGN)) {
+        if (expr->kind != EXPR_NAME) {
+            fatal_syntax_error(":= must be preceded by a name");
+        }
+        stmt = stmt_init(expr->name, parse_expr());
+    } 
+    else if (is_assign_op()) {
+        TokenKind op = token.kind;
+        next_token();
+        stmt = stmt_assign(op, expr, parse_expr());
+    } 
+    else if (is_token(TOKEN_INC) || is_token(TOKEN_DEC)) {
+        TokenKind op = token.kind;
+        next_token();
+        stmt = stmt_assign(op, expr, NULL);
+    } 
+    else {
+        stmt = stmt_expr(expr);
+    }
+    return stmt;
+}
+
 Stmt *parse_stmt_for() {
     expect_token('(');
     Stmt *init = NULL;
     if (!is_token(';')) {
-        init = parse_stmt();
+        init = parse_simple_stmt();
     }
+    expect_token(';');
     Expr *cond = NULL;
     if (!is_token(';')) {
         cond = parse_expr();
@@ -323,7 +330,7 @@ Stmt *parse_stmt_for() {
     expect_token(';');
     Stmt *next = NULL;
     if (!is_token(')')) {
-        next = parse_stmt();
+        next = parse_simple_stmt();
     }
     expect_token(')');
     return stmt_for(init, cond, next, parse_stmt_block());
@@ -356,10 +363,6 @@ Stmt *parse_stmt_switch() {
     }
     expect_token('}');
     return stmt_switch(expr, ast_dup(cases, buf_sizeof(cases)), buf_len(cases));
-}
-
-bool is_assign_op() {
-    return TOKEN_FIRST_ASSIGN <= token.kind && token.kind <= TOKEN_LAST_ASSIGN;
 }
 
 Stmt *parse_stmt() {
@@ -395,25 +398,32 @@ Stmt *parse_stmt() {
         return parse_stmt_switch();
     } 
     else {
-        Expr *expr = parse_expr();
-        Stmt *stmt;
-        if (match_token(TOKEN_COLON_ASSIGN)) {
-            if (expr->kind != EXPR_NAME) {
-                fatal_syntax_error(":= must be preceded by a name");
-            }
-            stmt = stmt_init(expr->name, parse_expr());
-        } 
-        else if (is_assign_op()) {
-            TokenKind op = token.kind;
-            next_token();
-            stmt = stmt_assign(op, expr, parse_expr());
-        } 
-        else {
-            stmt = stmt_expr(expr);
-        }
+        Stmt *stmt = parse_simple_stmt();
         expect_token(';');
         return stmt;
     }
+}
+
+const char *parse_name() {
+    const char *name = token.name;
+    expect_token(TOKEN_NAME);
+    return name;
+}
+
+Decl *parse_decl_enum() {
+    const char *name = parse_name();
+    expect_token('{');
+    EnumItem *items = NULL;
+    while (!is_token_eof() && !is_token('}')) {
+        const char *item_name = parse_name();
+        Expr *expr = NULL;
+        if (match_token('=')) {
+            expr = parse_expr();
+        }
+        buf_push(items, (EnumItem){name, expr});
+    }
+    expect_token('}');
+    return decl_enum(name, ast_dup(items, buf_sizeof(items)), buf_len(items));
 }
 
 AggregateItem parse_decl_aggregate_item() {
@@ -534,6 +544,7 @@ void parse_and_print_decl(const char *str) {
 
 void parse_test() {
     parse_and_print_decl("func fact(n: int): int { trace(\"fact\"); if (n == 0) { return 1; } else { return n * fact(n-1); } }");
+     parse_and_print_decl("func fact(n: int): int { p := 1; for (i := 1; i <= n; i++) { p *= i; } return p; }");
     parse_and_print_decl("var x = b == 1 ? 1+2 : 3-4");
     parse_and_print_decl("const pi = 3.14");
     parse_and_print_decl("struct Vector { x, y: float; }");
