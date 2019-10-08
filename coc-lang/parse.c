@@ -421,7 +421,7 @@ Stmt *parse_stmt() {
         return stmt_continue();
     } 
     else {
-        Decl *decl = parse_decl_optional();
+        Decl *decl = parse_decl_opt();
         if (decl) {
             return stmt_decl(decl);
         }
@@ -541,7 +541,7 @@ Decl *parse_decl_func() {
     return decl_func(name, ast_dup(params, buf_sizeof(params)), buf_len(params), ret_type, block);
 }
 
-Decl *parse_decl_optional() {
+Decl *parse_decl_opt() {
     if (match_keyword(enum_keyword)) {
         return parse_decl_enum();
     } 
@@ -569,7 +569,7 @@ Decl *parse_decl_optional() {
 }
 
 Decl *parse_decl() {
-    Decl *decl = parse_decl_optional();
+    Decl *decl = parse_decl_opt();
     if (!decl) {
         fatal_syntax_error("Expected declaration keyword, got %s.", token_info());
     }
@@ -595,7 +595,9 @@ void parse_test() {
         "func f() { do { print(42); } while(1); }",
         "typedef T = (func(int):int)[16]",
         "func f() { enum E { A, B, C } return 42; }",
+        "func f() { if (1) { return 1; } else if (2) { return 2; } else { return 3; } }",
     };
+    
     for (const char **it = decls; it != decls + sizeof(decls)/sizeof(*decls); it++) {
         init_stream(*it);
         Decl *decl = parse_decl();

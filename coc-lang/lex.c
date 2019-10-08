@@ -534,6 +534,7 @@ repeat:
 
 #undef CASE1
 #undef CASE2
+#undef CASE3
 
 void init_stream(const char *str) {
     stream = str;

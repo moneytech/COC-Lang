@@ -20,7 +20,7 @@
 void main_test() {
     common_test();
     lex_test();
-    // print_test();
+    print_test();
     parse_test();
 }
 

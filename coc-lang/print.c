@@ -4,6 +4,20 @@ void print_decl(Decl *decl);
 
 int indent;
 
+char *print_buf;
+int use_print_buf;
+
+#define printf(...) (use_print_buf ? (void)buf_printf(print_buf, __VA_ARGS__) : (void)printf(__VA_ARGS__))
+
+void flush_print_buf(FILE *file) {
+    if (print_buf) {
+        if (file) {
+            fputs(print_buf, file);
+        }
+        buf_clear(print_buf);
+    }
+}
+
 void print_newline() {
     printf("\n%.*s", 2*indent, "                                                                      ");
 }
@@ -358,10 +372,11 @@ void print_decl(Decl *decl) {
 }
 
 void print_test() {
+    use_print_buf = true;
     // Expressions
     Expr *exprs[] = {
-        expr_binary('+', expr_int(1), expr_int(2)),
-        expr_unary('-', expr_float(3.14)),
+        expr_binary(TOKEN_ADD, expr_int(1), expr_int(2)),
+        expr_unary(TOKEN_SUB, expr_float(3.14)),
         expr_ternary(expr_name("flag"), expr_str("true"), expr_str("false")),
         expr_field(expr_name("person"), "name"),
         expr_call(expr_name("fact"), (Expr*[]){expr_int(42)}, 1),
@@ -369,6 +384,7 @@ void print_test() {
         expr_cast(typespec_ptr(typespec_name("int")), expr_name("void_ptr")),
         expr_compound(typespec_name("Vector"), (Expr*[]){expr_int(1), expr_int(2)}, 2),
     };
+
     for (Expr **it = exprs; it != exprs + sizeof(exprs)/sizeof(*exprs); it++) {
         print_expr(*it);
         printf("\n");
@@ -449,8 +465,14 @@ void print_test() {
             2
         ),
     };
+
     for (Stmt **it = stmts; it != stmts + sizeof(stmts)/sizeof(*stmts); it++) {
         print_stmt(*it);
         printf("\n");
     }
+
+    flush_print_buf(stdout);
+    use_print_buf = false;
 }
+
+#undef printf
