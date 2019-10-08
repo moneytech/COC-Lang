@@ -66,7 +66,7 @@ typedef struct FuncDecl {
 
 typedef struct EnumItem {
     const char *name;
-    Expr *expr;
+    Expr *init;
 } EnumItem;
 
 typedef struct EnumDecl {
@@ -125,6 +125,8 @@ typedef enum ExprKind {
     EXPR_UNARY,
     EXPR_BINARY,
     EXPR_TERNARY,
+    EXPR_SIZEOF_EXPR,
+    EXPR_SIZEOF_TYPE,
 } ExprKind;
 
 typedef struct CompoundExpr {
@@ -179,6 +181,8 @@ struct Expr {
         double float_val;
         const char *str_val;
         const char *name;
+        Expr *sizeof_expr;
+        Typespec *sizeof_type;
         // Compound literals
         CompoundExpr compound;
         CastExpr cast;
@@ -264,11 +268,11 @@ struct Stmt {
     StmtKind kind;
     union {
         ReturnStmt return_stmt;
-        StmtBlock block;
         IfStmt if_stmt;
-        ForStmt for_stmt;
         WhileStmt while_stmt;
+        ForStmt for_stmt;
         SwitchStmt switch_stmt;
+        StmtBlock block;
         AssignStmt assign;
         InitStmt init;
         Expr *expr;

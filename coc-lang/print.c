@@ -58,6 +58,16 @@ void print_expr(Expr *expr) {
     case EXPR_NAME:
         printf("%s", e->name);
         break;
+    case EXPR_SIZEOF_EXPR:
+        printf("(sizeof-expr ");
+        print_expr(e->sizeof_expr);
+        printf(")");
+        break;
+    case EXPR_SIZEOF_TYPE:
+        printf("(sizeof-type ");
+        print_typespec(e->sizeof_type);
+        printf(")");
+        break;
     case EXPR_CAST:
         printf("(cast ");
         print_typespec(e->cast.type);
@@ -271,9 +281,10 @@ void print_decl(Decl *decl) {
         for (EnumItem *it = d->enum_decl.items; it != d->enum_decl.items + d->enum_decl.num_items; it++) {
             print_newline();
             printf("(%s ", it->name);
-            if (it->expr) {
-                print_expr(it->expr);
-            } else {
+            if (it->init) {
+                print_expr(it->init);
+            } 
+            else {
                 printf("nil");
             }
             printf(")");
