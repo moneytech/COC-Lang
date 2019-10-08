@@ -57,8 +57,8 @@ void init_keywords() {
 
 #undef KEYWORD
 
-int is_keyword_str(const char *str) {
-    return (first_keyword <= str && str <= last_keyword);
+int is_keyword_name(const char *name) {
+    return (first_keyword <= name && name <= last_keyword);
 }
 
 typedef enum TokenKind {
@@ -415,9 +415,8 @@ repeat:
         while (isalnum(*stream) || *stream == '_') {
             stream++;
         }
-        token.kind = TOKEN_NAME;
         token.name = str_intern_range(token.start, stream);
-        token.kind = is_keyword_str(token.name) ? TOKEN_KEYWORD : TOKEN_NAME;
+        token.kind = is_keyword_name(token.name) ? TOKEN_KEYWORD : TOKEN_NAME;
         break;
     case '<':
         token.kind = *stream++;
@@ -524,12 +523,12 @@ int expect_token(TokenKind kind) {
 
 void keyword_test() {
     init_keywords();
-    assert(is_keyword_str(first_keyword));
-    assert(is_keyword_str(last_keyword));
+    assert(is_keyword_name(first_keyword));
+    assert(is_keyword_name(last_keyword));
     for (const char **it = keywords; it != buf_end(keywords); it++) {
-        assert(is_keyword_str(*it));
+        assert(is_keyword_name(*it));
     }
-    assert(!is_keyword_str(str_intern("foo")));
+    assert(!is_keyword_name(str_intern("foo")));
 }
 
 #define assert_token(x) assert(match_token(x))
@@ -541,6 +540,7 @@ void keyword_test() {
 
 void lex_test() {
     keyword_test();
+    
     // Integer literal tests
     init_stream("0 18446744073709551615 0xffffffffffffffff 042 0b1111");
     assert_token_int(0);
