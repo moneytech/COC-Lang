@@ -35,17 +35,6 @@ struct Typespec {
     };
 };
 
-typedef enum DeclKind {
-    DECL_NONE,
-    DECL_ENUM,
-    DECL_STRUCT,
-    DECL_UNION,
-    DECL_VAR,
-    DECL_CONST,
-    DECL_TYPEDEF,
-    DECL_FUNC,
-} DeclKind;
-
 typedef struct FuncParam {
     const char *name;
     Typespec *type;
@@ -61,6 +50,17 @@ typedef struct EnumItem {
     const char *name;
     Expr *init;
 } EnumItem;
+
+typedef enum DeclKind {
+    DECL_NONE,
+    DECL_ENUM,
+    DECL_STRUCT,
+    DECL_UNION,
+    DECL_VAR,
+    DECL_CONST,
+    DECL_TYPEDEF,
+    DECL_FUNC,
+} DeclKind;
 
 struct Decl {
     DeclKind kind;
@@ -161,6 +161,18 @@ struct Expr {
     };
 };
 
+typedef struct ElseIf {
+    Expr *cond;
+    StmtList block;
+} ElseIf;
+
+typedef struct SwitchCase {
+    Expr **exprs;
+    size_t num_exprs;
+    bool is_default;
+    StmtList block;
+} SwitchCase;
+
 typedef enum StmtKind {
     STMT_NONE,
     STMT_DECL,
@@ -177,18 +189,6 @@ typedef enum StmtKind {
     STMT_INIT,
     STMT_EXPR,
 } StmtKind;
-
-typedef struct ElseIf {
-    Expr *cond;
-    StmtList block;
-} ElseIf;
-
-typedef struct SwitchCase {
-    Expr **exprs;
-    size_t num_exprs;
-    int is_default;
-    StmtList block;
-} SwitchCase;
 
 struct Stmt {
     StmtKind kind;

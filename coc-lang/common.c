@@ -116,16 +116,16 @@ char *buf__printf(char *buf, const char *fmt, ...) {
     if (n > cap) {
         buf_fit(buf, n + buf_len(buf));
         va_start(args, fmt);
-        cap = buf_cap(buf) - buf_len(buf);
-        n = 1 + vsnprintf(buf_end(buf), cap, fmt, args);
-        assert(n <= cap);
+        size_t new_cap = buf_cap(buf) - buf_len(buf);
+        n = 1 + vsnprintf(buf_end(buf), new_cap, fmt, args);
+        assert(n <= new_cap);
         va_end(args);
     }
     buf__hdr(buf)->len += n-1;
     return buf;
 }
 
-void buf_test() {
+void buf_test(void) {
     int *buf = NULL;
     assert(buf_len(buf) == 0);
     int n = 1024;
@@ -214,7 +214,7 @@ const char *str_intern(const char *str) {
     return str_intern_range(str, str + strlen(str));
 }
 
-void intern_test() {
+void intern_test(void) {
     char a[] = "hello";
     assert(strcmp(a, str_intern(a)) == 0);
     assert(str_intern(a) == str_intern(a));
@@ -229,7 +229,7 @@ void intern_test() {
 }
 
 // Common Tests
-void common_test() {
+void common_test(void) {
     buf_test();
     intern_test();
 }

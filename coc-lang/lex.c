@@ -24,7 +24,7 @@ const char **keywords;
 
 #define KEYWORD(name) name##_keyword = str_intern(#name); buf_push(keywords, name##_keyword)
 
-void init_keywords() {
+void init_keywords(void) {
     static int inited;
     if (inited) {
         return;
@@ -200,7 +200,7 @@ typedef struct Token {
     const char *start;
     const char *end;
     union {
-        uint64_t int_val;
+        int64_t int_val;
         double float_val;
         const char *str_val;
         const char *name;
@@ -210,7 +210,7 @@ typedef struct Token {
 Token token;
 const char *stream;
 
-const char *token_info() {
+const char *token_info(void) {
     if (token.kind == TOKEN_NAME || token.kind == TOKEN_KEYWORD) {
         return token.name;
     } 
@@ -238,7 +238,7 @@ uint8_t char_to_digit[256] = {
     ['f'] = 15, ['F'] = 15,
 };
 
-void scan_int() {
+void scan_int(void) {
     uint64_t base = 10;
     if (*stream == '0') {
         stream++;
@@ -282,7 +282,7 @@ void scan_int() {
     token.int_val = val;
 }
 
-void scan_float() {
+void scan_float(void) {
     const char *start = stream;
     while (isdigit(*stream)) {
         stream++;
@@ -323,7 +323,7 @@ char escape_to_char[256] = {
     ['0'] = 0,
 };
 
-void scan_char() {
+void scan_char(void) {
     assert(*stream == '\'');
     stream++;
     char val = 0;
@@ -357,7 +357,7 @@ void scan_char() {
     token.mod = TOKENMOD_CHAR;
 }
 
-void scan_str() {
+void scan_str(void) {
     assert(*stream == '"');
     stream++;
     char *str = NULL;
@@ -418,7 +418,7 @@ void scan_str() {
         } \
         break;
 
-void next_token() {
+void next_token(void) {
 repeat:
     token.start = stream;
     token.mod = 0;
@@ -547,7 +547,7 @@ int is_token(TokenKind kind) {
     return token.kind == kind;
 }
 
-int is_token_eof() {
+int is_token_eof(void) {
     return token.kind == TOKEN_EOF;
 }
 
@@ -590,7 +590,7 @@ int expect_token(TokenKind kind) {
     }
 }
 
-void keyword_test() {
+void keyword_test(void) {
     init_keywords();
     assert(is_keyword_name(first_keyword));
     assert(is_keyword_name(last_keyword));
@@ -607,7 +607,7 @@ void keyword_test() {
 #define assert_token_str(x) assert(strcmp(token.str_val, (x)) == 0 && match_token(TOKEN_STR))
 #define assert_token_eof() assert(is_token(0))
 
-void lex_test() {
+void lex_test(void) {
     keyword_test();
 
     // Integer literal tests
