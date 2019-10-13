@@ -1,3 +1,4 @@
+Decl *parse_decl_opt();
 Decl *parse_decl();
 Typespec *parse_type();
 Stmt *parse_stmt();
@@ -162,7 +163,7 @@ Expr *parse_expr_base() {
     return expr;
 }
 
-bool is_unary_op() {
+int is_unary_op() {
     return is_token(TOKEN_ADD) || is_token(TOKEN_SUB) || is_token(TOKEN_MUL) || is_token(TOKEN_AND);
 }
 
@@ -177,7 +178,7 @@ Expr *parse_expr_unary() {
     }
 }
 
-bool is_mul_op() {
+int is_mul_op() {
     return TOKEN_FIRST_MUL <= token.kind && token.kind <= TOKEN_LAST_MUL;
 }
 
@@ -191,7 +192,7 @@ Expr *parse_expr_mul() {
     return expr;
 }
 
-bool is_add_op() {
+int is_add_op() {
     return TOKEN_FIRST_ADD <= token.kind && token.kind <= TOKEN_LAST_ADD;
 }
 
@@ -205,7 +206,7 @@ Expr *parse_expr_add() {
     return expr;
 }
 
-bool is_cmp_op() {
+int is_cmp_op() {
     return TOKEN_FIRST_CMP <= token.kind && token.kind <= TOKEN_LAST_CMP;
 }
 
@@ -237,7 +238,7 @@ Expr *parse_expr_or() {
 
 Expr *parse_expr_ternary() {
     Expr *expr = parse_expr_or();
-    if (match_token('?')) {
+    if (match_token(TOKEN_QUESTION)) {
         Expr *then_expr = parse_expr_ternary();
         expect_token(TOKEN_COLON);
         Expr *else_expr = parse_expr_ternary();
@@ -310,6 +311,7 @@ Stmt *parse_simple_stmt() {
     if (match_token(TOKEN_COLON_ASSIGN)) {
         if (expr->kind != EXPR_NAME) {
             fatal_syntax_error(":= must be preceded by a name");
+            return NULL;
         }
         stmt = stmt_init(expr->name, parse_expr());
     } 
@@ -354,7 +356,7 @@ Stmt *parse_stmt_for() {
 
 SwitchCase parse_stmt_switch_case() {
     Expr **exprs = NULL;
-    bool is_default = false;
+    int is_default = false;
     while (is_keyword(case_keyword) || is_keyword(default_keyword)) {
         if (match_keyword(case_keyword)) {
             buf_push(exprs, parse_expr());
@@ -416,15 +418,12 @@ Stmt *parse_stmt() {
         return stmt_continue();
     }
     else if (match_keyword(return_keyword)) {
-        Stmt *stmt = NULL;
+        Expr *expr = NULL;
         if (!is_token(TOKEN_SEMICOLON)) {
-            stmt = stmt_return(parse_expr());
-        } 
-        else {
-            stmt = stmt_return(NULL);
+            expr = parse_expr();
         }
         expect_token(TOKEN_SEMICOLON);
-        return stmt;
+        return stmt_return(expr);
     }
     else {
         Decl *decl = parse_decl_opt();

@@ -25,7 +25,7 @@ const char **keywords;
 #define KEYWORD(name) name##_keyword = str_intern(#name); buf_push(keywords, name##_keyword)
 
 void init_keywords() {
-    static bool inited;
+    static int inited;
     if (inited) {
         return;
     }
@@ -80,8 +80,8 @@ typedef enum TokenKind {
     TOKEN_STR,
     TOKEN_NAME,
     // Multiplicative precedence
-    TOKEN_MUL,
-    TOKEN_FIRST_MUL = TOKEN_MUL,
+    TOKEN_FIRST_MUL,
+    TOKEN_MUL = TOKEN_FIRST_MUL,
     TOKEN_DIV,
     TOKEN_MOD,
     TOKEN_AND,
@@ -89,15 +89,15 @@ typedef enum TokenKind {
     TOKEN_RSHIFT,
     TOKEN_LAST_MUL = TOKEN_RSHIFT,
     // Additive precedence
-    TOKEN_ADD,
-    TOKEN_FIRST_ADD = TOKEN_ADD,
+    TOKEN_FIRST_ADD,
+    TOKEN_ADD = TOKEN_FIRST_ADD,
     TOKEN_SUB,
     TOKEN_XOR,
     TOKEN_OR,
     TOKEN_LAST_ADD = TOKEN_OR,
     // Comparative precedence
-    TOKEN_EQ,
-    TOKEN_FIRST_CMP = TOKEN_EQ,
+    TOKEN_FIRST_CMP,
+    TOKEN_EQ = TOKEN_FIRST_CMP,
     TOKEN_NOTEQ,
     TOKEN_LT,
     TOKEN_GT,
@@ -107,8 +107,8 @@ typedef enum TokenKind {
     TOKEN_AND_AND,
     TOKEN_OR_OR,
     // Assignment operators
-    TOKEN_ASSIGN,
-    TOKEN_FIRST_ASSIGN = TOKEN_ASSIGN,
+    TOKEN_FIRST_ASSIGN,
+    TOKEN_ASSIGN = TOKEN_FIRST_ASSIGN,
     TOKEN_ADD_ASSIGN,
     TOKEN_SUB_ASSIGN,
     TOKEN_OR_ASSIGN,
@@ -488,9 +488,10 @@ repeat:
         }
         break;
     case '>':
-        token.kind = *stream++;
+        token.kind = TOKEN_GT;
+        stream++;
         if (*stream == '>') {
-            token.kind = TOKEN_GT;
+            token.kind = TOKEN_RSHIFT;
             stream++;
             if (*stream == '=') {
                 token.kind = TOKEN_RSHIFT_ASSIGN;
