@@ -226,7 +226,7 @@ typedef struct Entity {
 Entity **entities;
 
 Entity *entity_new(EntityKind kind, const char *name, Decl *decl) {
-    Entity *entity = xcalloc(1, sizeof(Decl));
+    Entity *entity = xcalloc(1, sizeof(Entity));
     entity->kind = kind;
     entity->name = name;
     entity->decl = decl;
@@ -343,8 +343,13 @@ Type *resolve_typespec(Typespec *typespec) {
     }
     case TYPESPEC_PTR:
         return type_ptr(resolve_typespec(typespec->ptr.elem));
-    case TYPESPEC_ARRAY:
-        return type_array(resolve_typespec(typespec->array.elem), resolve_const_expr(typespec->array.size));
+    case TYPESPEC_ARRAY: {
+        int64_t size = resolve_const_expr(typespec->array.size);
+        if (size < 0) {
+            fatal("Negative array size");
+        }
+        return type_array(resolve_typespec(typespec->array.elem), size);
+    }
     case TYPESPEC_FUNC: {
         Type **args = NULL;
         for (size_t i = 0; i < typespec->func.num_args; i++) {
@@ -667,9 +672,6 @@ ResolvedExpr resolve_expr_compound(Expr *expr, Type *expected_type) {
     Type *type = NULL;
     if (expr->compound.type) {
         type = resolve_typespec(expr->compound.type);
-        if (expected_type && expected_type != type) {
-            fatal("Explicit compound literal type does not match expected type");
-        }
     } 
     else {
         type = expected_type;
@@ -823,8 +825,7 @@ ResolvedExpr resolve_expected_expr(Expr *expr, Type *expected_type) {
     case EXPR_TERNARY:
         return resolve_expr_ternary(expr, expected_type);
     case EXPR_SIZEOF_EXPR: {
-        ResolvedExpr result = resolve_expr(expr->sizeof_expr);
-        Type *type = result.type;
+        Type *type = resolve_expr(expr->sizeof_expr).type;
         complete_type(type);
         return resolved_const(type_sizeof(type));
     }
