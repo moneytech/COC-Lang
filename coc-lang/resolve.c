@@ -25,6 +25,7 @@ typedef struct TypeField {
 struct Type {
     TypeKind kind;
     size_t size;
+    size_t align;
     Entity *entity;
     union {
         struct {
@@ -55,16 +56,23 @@ Type *type_alloc(TypeKind kind) {
 }
 
 Type *type_void = &(Type){TYPE_VOID, 0};
-Type *type_char = &(Type){TYPE_CHAR, 1};
-Type *type_int = &(Type){TYPE_INT, 4};
-Type *type_float = &(Type){TYPE_FLOAT, 4};
+Type *type_char = &(Type){TYPE_CHAR, 1, 1};
+Type *type_int = &(Type){TYPE_INT, 4, 4};
+Type *type_float = &(Type){TYPE_FLOAT, 4, 4};
 
 const size_t PTR_SIZE = 8;
+const size_t PTR_ALIGN = 8;
 
 size_t type_sizeof(Type *type) {
     assert(type->kind > TYPE_COMPLETING);
     assert(type->size != 0);
     return type->size;
+}
+
+size_t type_alignof(Type *type) {
+    assert(type->kind > TYPE_COMPLETING);
+    assert(IS_POW2(type->align));
+    return type->align;
 }
 
 typedef struct CachedPtrType {
@@ -82,6 +90,7 @@ Type *type_ptr(Type *elem) {
     }
     Type *type = type_alloc(TYPE_PTR);
     type->size = PTR_SIZE;
+    type->align = PTR_ALIGN;
     type->ptr.elem = elem;
     buf_push(cached_ptr_types, (CachedPtrType){elem, type});
     return type;
@@ -104,6 +113,7 @@ Type *type_array(Type *elem, size_t size) {
     complete_type(elem);
     Type *type = type_alloc(TYPE_ARRAY);
     type->size = size * type_sizeof(elem);
+    type->align = type_alignof(elem);
     type->array.elem = elem;
     type->array.size = size;
     buf_push(cached_array_types, (CachedArrayType){elem, size, type});
@@ -136,6 +146,7 @@ Type *type_func(Type **params, size_t num_params, Type *ret) {
     }
     Type *type = type_alloc(TYPE_FUNC);
     type->size = PTR_SIZE;
+    type->align = PTR_ALIGN;
     type->func.params = memdup(params, num_params * sizeof(*params));
     type->func.num_params = num_params;
     type->func.ret = ret;
@@ -143,13 +154,26 @@ Type *type_func(Type **params, size_t num_params, Type *ret) {
     return type;
 }
 
+// TODO: This probably shouldn't use an O(n^2) algorithm
+bool duplicate_fields(TypeField *fields, size_t num_fields) {
+    for (size_t i = 0; i < num_fields; i++) {
+        for (size_t j = i+1; j < num_fields; j++) {
+            if (fields[i].name == fields[j].name) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void type_complete_struct(Type *type, TypeField *fields, size_t num_fields) {
     assert(type->kind == TYPE_COMPLETING);
     type->kind = TYPE_STRUCT;
     type->size = 0;
+    type->align = 0;
     for (TypeField *it = fields; it != fields + num_fields; it++) {
-        // TODO: Alignment, etc.
-        type->size += type_sizeof(it->type);
+        type->size = type_sizeof(it->type) + ALIGN_UP(type->size, type_alignof(it->type));
+        type->align = MAX(type->align, type_alignof(it->type));
     }
     type->aggregate.fields = memdup(fields, num_fields * sizeof(*fields));
     type->aggregate.num_fields = num_fields;
@@ -159,9 +183,11 @@ void type_complete_union(Type *type, TypeField *fields, size_t num_fields) {
     assert(type->kind == TYPE_COMPLETING);
     type->kind = TYPE_UNION;
     type->size = 0;
+    type->align = 0;
     for (TypeField *it = fields; it != fields + num_fields; it++) {
         assert(it->type->kind > TYPE_COMPLETING);
         type->size = MAX(type->size, type_sizeof(it->type));
+        type->align = MAX(type->align, type_alignof(it->type));
     }
     type->aggregate.fields = memdup(fields, num_fields * sizeof(*fields));
     type->aggregate.num_fields = num_fields;
@@ -301,7 +327,7 @@ ResolvedExpr resolved_const(int64_t val) {
 }
 
 Entity *resolve_name(const char *name);
-int64_t resolve_int_const_expr(Expr *expr);
+int64_t resolve_const_expr(Expr *expr);
 ResolvedExpr resolve_expr(Expr *expr);
 ResolvedExpr resolve_expected_expr(Expr *expr, Type *expected_type);
 
@@ -318,13 +344,17 @@ Type *resolve_typespec(Typespec *typespec) {
     case TYPESPEC_PTR:
         return type_ptr(resolve_typespec(typespec->ptr.elem));
     case TYPESPEC_ARRAY:
-        return type_array(resolve_typespec(typespec->array.elem), resolve_int_const_expr(typespec->array.size));
+        return type_array(resolve_typespec(typespec->array.elem), resolve_const_expr(typespec->array.size));
     case TYPESPEC_FUNC: {
         Type **args = NULL;
         for (size_t i = 0; i < typespec->func.num_args; i++) {
             buf_push(args, resolve_typespec(typespec->func.args[i]));
         }
-        return type_func(args, buf_len(args), resolve_typespec(typespec->func.ret));
+        Type *ret = type_void;
+        if (typespec->func.ret) {
+            ret = resolve_typespec(typespec->func.ret);
+        }
+        return type_func(args, buf_len(args), ret);
     }
     default:
         assert(0);
@@ -353,6 +383,12 @@ void complete_type(Type *type) {
         for (size_t j = 0; j < item.num_names; j++) {
             buf_push(fields, (TypeField){item.names[j], item_type});
         }
+    }
+    if (buf_len(fields) == 0) {
+        fatal("No fields");
+    }
+    if (duplicate_fields(fields, buf_len(fields))) {
+        fatal("Duplicate fields");
     }
     if (decl->kind == DECL_STRUCT) {
         type_complete_struct(type, fields, buf_len(fields));
@@ -402,7 +438,11 @@ Type *resolve_decl_func(Decl *decl) {
     for (size_t i = 0; i < decl->func.num_params; i++) {
         buf_push(params, resolve_typespec(decl->func.params[i].type));
     }
-    return type_func(params, buf_len(params), resolve_typespec(decl->func.ret_type));
+    Type *ret_type = type_void;
+    if (decl->func.ret_type) {
+        ret_type = resolve_typespec(decl->func.ret_type);
+    }
+    return type_func(params, buf_len(params), ret_type);
 }
 
 void resolve_entity(Entity *entity) {
@@ -632,7 +672,7 @@ ResolvedExpr resolve_expr_compound(Expr *expr, Type *expected_type) {
             fatal("Compound literal has too many fields");
         }
         for (size_t i = 0; i < expr->compound.num_args; i++) {
-            ResolvedExpr field = resolve_expr(expr->compound.args[i]);
+            ResolvedExpr field = resolve_expected_expr(expr->compound.args[i], type->aggregate.fields[i].type);
             if (field.type != type->aggregate.fields[i].type) {
                 fatal("Compound literal field type mismatch");
             }
@@ -644,7 +684,7 @@ ResolvedExpr resolve_expr_compound(Expr *expr, Type *expected_type) {
             fatal("Compound literal has too many elements");
         }
         for (size_t i = 0; i < expr->compound.num_args; i++) {
-            ResolvedExpr elem = resolve_expr(expr->compound.args[i]);
+            ResolvedExpr elem = resolve_expected_expr(expr->compound.args[i], type->array.elem);
             if (elem.type != type->array.elem) {
                 fatal("Compound literal element type mismatch");
             }
@@ -656,7 +696,6 @@ ResolvedExpr resolve_expr_compound(Expr *expr, Type *expected_type) {
 ResolvedExpr resolve_expr_call(Expr *expr) {
     assert(expr->kind == EXPR_CALL);
     ResolvedExpr func = resolve_expr(expr->call.expr);
-    complete_type(func.type);
     if (func.type->kind != TYPE_FUNC) {
         fatal("Trying to call non-function value");
     }
@@ -679,8 +718,8 @@ ResolvedExpr resolve_expr_ternary(Expr *expr, Type *expected_type) {
     if (cond.type->kind != TYPE_INT && cond.type->kind != TYPE_PTR) {
         fatal("Ternary cond expression must have type int or ptr");
     }
-    ResolvedExpr then_expr = resolve_expected_expr(expr->ternary.then_expr, expected_type);
-    ResolvedExpr else_expr = resolve_expected_expr(expr->ternary.else_expr, expected_type);
+    ResolvedExpr then_expr = ptr_decay(resolve_expected_expr(expr->ternary.then_expr, expected_type));
+    ResolvedExpr else_expr = ptr_decay(resolve_expected_expr(expr->ternary.else_expr, expected_type));
     if (then_expr.type != else_expr.type) {
         fatal("Ternary then/else expressions must have matching types");
     }
@@ -772,7 +811,7 @@ ResolvedExpr resolve_expr(Expr *expr) {
     return resolve_expected_expr(expr, NULL);
 }
 
-int64_t resolve_int_const_expr(Expr *expr) {
+int64_t resolve_const_expr(Expr *expr) {
     ResolvedExpr result = resolve_expr(expr);
     if (!result.is_const) {
         fatal("Expected constant expression");
@@ -800,24 +839,39 @@ void resolve_test(void) {
     assert(int_func == type_func(NULL, 0, type_int));
 
     entity_install_type(str_intern("void"), type_void);
+    entity_install_type(str_intern("char"), type_char);
     entity_install_type(str_intern("int"), type_int);
 
     const char *code[] = {
+        "struct Vector { x, y: int; }",
+        "func add(v: Vector, w: Vector): Vector { return {v.x + w.x, v.y + w.y}; }",
+        "var vs: Vector[2][2] = {{{1,2},{3,4}}, {{5,6},{7,8}}}",
+/*
+        "struct A { c: char; }",
+        "struct B { i: int; }",
+        "struct C { c: char; a: A; }",
+        "struct D { c: char; b: B; }",
+        "func print(v: Vector) { printf(\"{%d, %d}\", v.x, v.y); }",
+        "var x = add({1,2}, {3,4})",
+        "var v: Vector = {1,2}",
+        "var w = Vector{3,4}",
+        "var p: void*",
+        "var i = cast(int, p) + 1",
+        "var fp: func(Vector)",
+        "struct Dup { x: int; x: int; }",
         "var a: int[3] = {1,2,3}",
+        "var b: int[4]",
         "var p = &a[1]",
         "var i = p[1]",
         "var j = *p",
         "const n = sizeof(a)",
         "const m = sizeof(&a[0])",
-        /*
+        "const l = sizeof(1 ? a : b)",
         "var pi = 3.14",
         "var name = \"Per\"",
-        "struct Vector { x, y: int; }",
         "var v = Vector{1,2}",
-        "var i = 42",
-        "var p = cast(void*)i",
-        "var j = cast(int)p",
-        "var q = cast(int*)j",
+        "var j = cast(int, p)",
+        "var q = cast(int*, j)",
         "const i = 42",
         "const j = +i",
         "const k = -i",
@@ -825,10 +879,6 @@ void resolve_test(void) {
         "const b = !0",
         "const c = ~100 + 1 == -100",
         "const k = 1 ? 2 : 3",
-        "func add(v: Vector, w: Vector): Vector { return {v.x + w.x, v.y + w.y}; }",
-        "var x = add({1,2}, {3,4})",
-        "var v: Vector = {1,2}",
-        "var w = Vector{3,4}",
         "union IntOrPtr { i: int; p: int*; }",
         "var i = 42",
         "var u = IntOrPtr{i, &i}",
@@ -842,12 +892,11 @@ void resolve_test(void) {
         "const m = sizeof(t.a)",
         "var i = n+m",
         "var q = &i",
+        "const n = sizeof(x)",
+        "var x: T",
+        "struct T { s: S*; }",
+        "struct S { t: T[n]; }",
 */
-
-//        "const n = sizeof(x)",
-//        "var x: T",
-//        "struct T { s: S*; }",
-//        "struct S { t: T[n]; }",
     };
     for (size_t i = 0; i < sizeof(code)/sizeof(*code); i++) {
         init_stream(code[i]);
