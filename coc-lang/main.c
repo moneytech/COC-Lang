@@ -11,6 +11,7 @@
 #include <inttypes.h>
 
 #include "common.c"
+#include "error.c"
 #include "lex.c"
 #include "ast.h"
 #include "ast.c"    
@@ -18,6 +19,7 @@
 #include "parse.c"
 #include "resolve.c"
 #include "gen.c"
+#include "coc.c"
 
 void main_test(void) {
     common_test();
@@ -25,10 +27,11 @@ void main_test(void) {
     // print_test();
     // parse_test();
     // resolve_test();
-    gen_test();
+    // gen_test();
+    // coc_test();
 }
 
 int main(int argc, char **argv) {
-    main_test();
-    return 0;
+//   main_test();
+    return coc_main(argc, argv);
 }
