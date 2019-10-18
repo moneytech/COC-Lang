@@ -69,6 +69,18 @@ void fatal_syntax_error(const char *fmt, ...) {
     exit(1);
 }
 
+char *strf(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    size_t n = 1 + vsnprintf(NULL, 0, fmt, args);
+    va_end(args);
+    char *str = xmalloc(n);
+    va_start(args, fmt);
+    vsnprintf(str, n, fmt, args);
+    va_end(args);
+    return str;
+}
+
 /* ----------- Stretchy Buffers (invented by Sean Barrett) -------- */
 
 typedef struct BufHdr {
@@ -233,4 +245,10 @@ void intern_test(void) {
 void common_test(void) {
     buf_test();
     intern_test();
+    char *str1 = strf("%d %d", 1, 2);
+    assert(strcmp(str1, "1 2") == 0);
+    char *str2 = strf("%s %s", str1, str1);
+    assert(strcmp(str2, "1 2 1 2") == 0);
+    char *str3 = strf("%s asdf %s", str2, str2);
+    assert(strcmp(str3, "1 2 1 2 asdf 1 2 1 2") == 0);
 }
