@@ -22,7 +22,7 @@ typedef enum TypeKind {
     TYPE_UNION,
     TYPE_ENUM,
     TYPE_FUNC,
-    MAX_TYPES,
+    MAX_TYPES_KINDS,
 } TypeKind;
 
 typedef struct Type Type;
@@ -108,7 +108,7 @@ int is_signed_type(Type *type) {
     }
 }
 
-int type_ranks[MAX_TYPES] = {
+int type_ranks[MAX_TYPES_KINDS] = {
     [TYPE_CHAR] = 1,
     [TYPE_SCHAR] = 1,
     [TYPE_UCHAR] = 1,
@@ -123,7 +123,9 @@ int type_ranks[MAX_TYPES] = {
 };
 
 int type_rank(Type *type) {
-    return type_ranks[type->kind];
+    int rank = type_ranks[type->kind];
+    assert(rank != 0);
+    return rank;
 }
 
 Type *unsigned_type(Type *type) {
@@ -645,11 +647,12 @@ Type *resolve_typespec(Typespec *typespec) {
     case TYPESPEC_ARRAY: {
         int size = 0;
         if (typespec->array.size) {
-            Operand size_operand = resolve_const_expr(typespec->array.size);
-            if (size_operand.type != type_int) {
-                fatal_error(typespec->pos, "Array size constant expression must have type int");
+            Operand operand = resolve_const_expr(typespec->array.size);
+            if (!is_integer_type(operand.type)) {
+                fatal_error(typespec->pos, "Array size constant expression must have integer type");
             }
-            size = size_operand.val.i;
+            convert_operand(&operand, type_int);
+            size = operand.val.i;
             if (size <= 0) {
                 fatal("Non-positive array size");
             }
@@ -994,7 +997,7 @@ Val eval_unary_op(TokenKind op, Type *type, Val val) {
             break;
         case TOKEN_SUB:
             // Do nothing
-            r = x;
+            r = 0ull - x;
             break;
         case TOKEN_NEG:
             r = ~x;
