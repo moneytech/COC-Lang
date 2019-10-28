@@ -398,6 +398,7 @@ void print_decl(Decl *decl) {
 }
 
 void print_test(void) {
+    #if 0
     use_print_buf = true;
     // Expressions
     Expr *exprs[] = {
@@ -498,6 +499,7 @@ void print_test(void) {
 
     flush_print_buf(stdout);
     use_print_buf = false;
+    #endif
 }
 
 #undef printf

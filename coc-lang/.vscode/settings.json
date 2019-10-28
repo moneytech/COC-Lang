@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "ctype.h": "c",
-        "typeinfo": "c"
-    }
+        "typeinfo": "c",
+        "type_traits": "c"
+    },
+    "python.linting.enabled": false
 }

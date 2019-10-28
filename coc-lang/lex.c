@@ -6,7 +6,6 @@ const char *var_keyword;
 const char *const_keyword;
 const char *func_keyword;
 const char *sizeof_keyword;
-const char *cast_keyword;
 const char *break_keyword;
 const char *continue_keyword;
 const char *return_keyword;
@@ -40,7 +39,6 @@ void init_keywords(void) {
     KEYWORD(var);
     KEYWORD(func);
     KEYWORD(sizeof);
-    KEYWORD(cast);
     KEYWORD(break);
     KEYWORD(continue);
     KEYWORD(return);
@@ -201,9 +199,15 @@ const char *token_kind_name(TokenKind kind) {
     }
 }
 
+typedef struct SrcPos {
+    const char *name;
+    int line;
+} SrcPos;
+
 typedef struct Token {
     TokenKind kind;
     TokenMod mod;
+    SrcPos pos;
     const char *start;
     const char *end;
     union {
@@ -217,10 +221,19 @@ typedef struct Token {
 Token token;
 const char *stream;
 const char *line_start;
-size_t line_number;
 
-int src_line;
-const char *src_name;
+void error(SrcPos pos, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    printf("%s(%d): ", pos.name, pos.line);
+    vprintf(fmt, args);
+    printf("\n");
+    va_end(args);
+}
+
+#define fatal_error(...) (error(__VA_ARGS__), exit(1))
+#define syntax_error(...) (error(token.pos, __VA_ARGS__))
+#define fatal_syntax_error(...) (syntax_error(__VA_ARGS__), exit(1))
 
 const char *token_info(void) {
     if (token.kind == TOKEN_NAME || token.kind == TOKEN_KEYWORD) {
@@ -439,7 +452,7 @@ repeat:
         while (isspace(*stream)) {
             if (*stream++ == '\n') {
                 line_start = stream;
-                src_line++;
+                token.pos.line++;
             }
         }
         goto repeat;
@@ -514,8 +527,6 @@ repeat:
         } 
         else if (*stream == '=') {
             token.kind = TOKEN_GTEQ;
-            int x = 0;
-            x |= 1;
             stream++;
         }
         break;
@@ -569,9 +580,9 @@ repeat:
 
 void init_stream(const char *name, const char *buf) {
     stream = buf;
-    src_name = name ? name : "<anonymous>";
-    src_line = 1;
     line_start = stream;
+    token.pos.name = name ? name : "<string>";
+    token.pos.line = 1;
     next_token();
 }
 
@@ -618,7 +629,7 @@ int expect_token(TokenKind kind) {
         return true;
     } 
     else {
-        fatal("expected token %s, got %s", token_kind_name(kind), token_info());
+        fatal_syntax_error("expected token %s, got %s", token_kind_name(kind), token_info());
         return false;
     }
 }

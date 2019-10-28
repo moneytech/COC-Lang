@@ -220,7 +220,8 @@ enum {
     MAX_LOCAL_SYMS = 1024
 };
 
-Map global_syms;
+Map global_syms_map;
+Sym **global_syms_buf;
 Sym local_syms[MAX_LOCAL_SYMS];
 Sym *local_syms_end = local_syms;
 
@@ -273,7 +274,7 @@ Sym *sym_get(const char *name) {
             return sym;
         }
     }
-    return map_get(&global_syms, (void *)name);
+    return map_get(&global_syms_map, (void *)name);
 }
 
 void sym_push_var(const char *name, Type *type) {
@@ -297,7 +298,8 @@ void sym_leave(Sym *sym) {
 }
 
 void sym_global_put(Sym *sym) {
-    map_put(&global_syms, (void *)sym->name, sym);
+    map_put(&global_syms_map, (void *)sym->name, sym);
+    buf_push(global_syms_buf, sym);
 }
 
 Sym *sym_global_decl(Decl *decl) {
@@ -312,12 +314,19 @@ Sym *sym_global_decl(Decl *decl) {
     return sym;
 }
 
-Sym *sym_global_type(const char *name, Type *type) {
-    Sym *sym = sym_new(SYM_TYPE, name, NULL);
+void sym_global_type(const char *name, Type *type) {
+    Sym *sym = sym_new(SYM_TYPE, str_intern(name), NULL);
     sym->state = SYM_RESOLVED;
     sym->type = type;
     sym_global_put(sym);
-    return sym;
+}
+
+void sym_global_func(const char *name, Type *type) {
+    assert(type->kind = TYPE_FUNC);
+    Sym *sym = sym_new(SYM_FUNC, str_intern(name), NULL);
+    sym->state = SYM_RESOLVED;
+    sym->type = type;
+    sym_global_put(sym);
 }
 
 typedef struct Operand {
@@ -364,7 +373,7 @@ Type *resolve_typespec(Typespec *typespec) {
     case TYPESPEC_NAME: {
         Sym *sym = resolve_name(typespec->name);
         if (sym->kind != SYM_TYPE) {
-            fatal_error(typespec->loc, "%s must denote a type", typespec->name);
+            fatal_error(typespec->pos, "%s must denote a type", typespec->name);
             return NULL;
         }
         result = sym->type;
@@ -402,7 +411,7 @@ Type *resolve_typespec(Typespec *typespec) {
     return result;
 }
 
-Sym **ordered_syms;
+Sym **sorted_syms;
 
 void complete_type(Type *type) {
     if (type->kind == TYPE_COMPLETING) {
@@ -437,7 +446,7 @@ void complete_type(Type *type) {
         assert(decl->kind == DECL_UNION);
         type_complete_union(type, fields, buf_len(fields));
     }
-    buf_push(ordered_syms, type->sym);
+    buf_push(sorted_syms, type->sym);
 }
 
 Type *resolve_decl_type(Decl *decl) {
@@ -578,6 +587,9 @@ void resolve_stmt(Stmt *stmt, Type *ret_type) {
     case STMT_INIT:
         sym_push_var(stmt->init.name, resolve_expr(stmt->init.expr).type);
         break;
+    case STMT_EXPR:
+        resolve_expr(stmt->expr);
+        break;
     default:
         assert(0);
         break;
@@ -625,7 +637,7 @@ void resolve_sym(Sym *sym) {
         break;
     }
     sym->state = SYM_RESOLVED;
-    buf_push(ordered_syms, sym);
+    buf_push(sorted_syms, sym);
 }
 
 void finalize_sym(Sym *sym) {
@@ -1026,10 +1038,11 @@ int64_t resolve_const_expr(Expr *expr) {
 }
 
 void init_global_syms(void) {
-    sym_global_type(str_intern("void"), type_void);
-    sym_global_type(str_intern("char"), type_char);
-    sym_global_type(str_intern("int"), type_int);
-    sym_global_type(str_intern("float"), type_float);
+sym_global_type("void", type_void);
+    sym_global_type("char", type_char);
+    sym_global_type("int", type_int);
+    sym_global_type("float", type_float);
+    sym_global_func("puts", type_func((Type*[]){type_ptr(type_char)}, 1, type_int));
 }
 
 void sym_global_decls(DeclSet *declset) {
@@ -1039,12 +1052,11 @@ void sym_global_decls(DeclSet *declset) {
 }
 
 void finalize_syms(void) {
-    for (size_t i = 0; i < global_syms.cap; i++) {
-        if (!global_syms.keys[i]) {
-            continue;
+    for (Sym **it = global_syms_buf; it != buf_end(global_syms_buf); it++) {
+        Sym *sym = *it;
+        if (sym->decl) {
+            finalize_sym(sym);
         }
-        Sym *sym = global_syms.vals[i];
-        finalize_sym(sym);
     }
 }
 
@@ -1072,9 +1084,9 @@ void resolve_test(void) {
     const char *code[] = {
         "union IntOrPtr { i: int; p: int*; }",
         "var u1 = IntOrPtr{i = 42}",
-        "var u2 = IntOrPtr{p = cast(int*, 42)}",
-        "struct Vector { x, y: int; }",
+        "var u2 = IntOrPtr{p = (:int*)42}",
         "var i: int",
+        "struct Vector { x, y: int; }",
         "func f1() { v := Vector{1, 2}; j := i; i++; j++; v.x = 2*j; }",
         "func f2(n: int): int { return 2*n; }",
         "func f3(x: int): int { if (x) { return -x; } else if (x % 2 == 0) { return 42; } else { return -1; } }",
@@ -1100,7 +1112,7 @@ void resolve_test(void) {
         "var v: Vector = {1,2}",
         "var w = Vector{3,4}",
         "var p: void*",
-        "var i = cast(int, p) + 1",
+        "var i = (:int)p + 1",
         "var fp: func(Vector)",
         "struct Dup { x: int; x: int; }",
         "var a: int[3] = {1,2,3}",
@@ -1114,8 +1126,8 @@ void resolve_test(void) {
         "var pi = 3.14",
         "var name = \"Per\"",
         "var v = Vector{1,2}",
-        "var j = cast(int, p)",
-        "var q = cast(int*, j)",
+        "var j = (:int)p",
+        "var q = (:int*)j",
         "const i = 42",
         "const j = +i",
         "const k = -i",
@@ -1148,7 +1160,7 @@ void resolve_test(void) {
         sym_global_decl(decl);
     }
     finalize_syms();
-    for (Sym **it = ordered_syms; it != buf_end(ordered_syms); it++) {
+    for (Sym **it = sorted_syms; it != buf_end(sorted_syms); it++) {
         Sym *sym = *it;
         if (sym->decl) {
             print_decl(sym->decl);
