@@ -148,7 +148,7 @@ struct Expr {
     struct Type *type;
     union {
         // Literals/names
-        int64_t int_val;
+        int int_val;
         double float_val;
         const char *str_val;
         const char *name;
