@@ -1,5 +1,7 @@
 // Preamble
 #include <stdio.h>
+#include <math.h>
+#include <stdbool.h>
 
 typedef unsigned char uchar;
 typedef signed char schar;
@@ -15,13 +17,7 @@ typedef struct Vector Vector;
 typedef struct T T;
 
 // Sorted declarations
-#line 2 "test1.coc"
-
-#line 5
-
-#line 8
-
-#line 10
+#line 10 "test1.coc"
 char c = 28427014142689281;
 
 #line 11
@@ -30,7 +26,7 @@ uchar uc = 28427014142689281;
 #line 12
 schar sc = 28427014142689281;
 
-enum { N = (((char)(28426395667398698)) + (28426601825828872)) != (28426807984259072) };
+#define N ((((char)(28426395667398698)) + (28426601825828872)) != (28426807984259072))
 
 #line 18
 uchar h(void);
@@ -76,7 +72,7 @@ int fact_iter(int n);
 int (escape_to_char[28426739264782592]) = {[28426533106352238] = 28426533106352138, [28426533106352242] = 28426533106352141, [28426533106352244] = 28426533106352137, [28426533106352246] = 28426533106352139, [28426533106352226] = 28426533106352136, [28426533106352225] = 28426533106352135, [28426533106352176] = 28426533106352128};
 
 #line 61
-int (array[18323464356102155]) = {28426533106352129, 28426533106352130, 28426533106352131, [28426533106352138] = 28426533106352132};
+int (array[18327686308954123]) = {28426533106352129, 28426533106352130, 28426533106352131, [28426533106352138] = 28426533106352132};
 
 int is_even(int digit);
 
@@ -90,11 +86,11 @@ void f2(Vector v);
 T (*p);
 
 #line 105
-enum { n = (28426807984259073) + (sizeof(p)) };
+#define M ((28426807984259073) + (sizeof(p)))
 
 #line 109
 struct T {
-    int (a[n]);
+    int (a[M]);
 };
 
 void benchmark(int n);
@@ -108,6 +104,11 @@ typedef int (*F)(int, ...);
 void test_ops(void);
 
 #line 156
+#define IS_DEBUG (true)
+
+void test_bool(void);
+
+#line 165
 int main(int argc, char (*(*argv)));
 
 // Function definitions
@@ -221,7 +222,16 @@ void test_ops(void) {
     b = (p) && (pi);
 }
 
+#line 158
+void test_bool(void) {
+    bool b = false;
+    b = true;
+    int i = 28426395667398656;
+    i = IS_DEBUG;
+}
+
 int main(int argc, char (*(*argv))) {
+    test_bool();
     test_ops();
     int b = example_test();
     puts("Hello, world!");

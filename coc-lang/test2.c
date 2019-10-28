@@ -1,6 +1,7 @@
 // Preamble
 #include <stdio.h>
 #include <math.h>
+#include <stdbool.h>
 
 typedef unsigned char uchar;
 typedef signed char schar;
@@ -14,13 +15,7 @@ typedef unsigned long long ullong;
 typedef struct vec2 vec2;
 
 // Sorted declarations
-#line 2 "test2.coc"
-
-#line 5
-
-#line 8
-
-#line 10
+#line 10 "test2.coc"
 struct vec2 {
     float x;
     #line 11
