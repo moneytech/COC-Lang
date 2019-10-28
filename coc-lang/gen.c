@@ -6,9 +6,19 @@ char *gen_buf = NULL;
 int gen_indent;
 SrcPos gen_pos;
 
-const char *gen_preamble = \
+const char *gen_preamble = 
     "// Preamble\n"
-    "#include <stdio.h>\n\n";
+    "#include <stdio.h>\n"
+    "\n"
+    "typedef unsigned char uchar;\n"
+    "typedef signed char schar;\n"
+    "typedef unsigned short ushort;\n"
+    "typedef unsigned int uint;\n"
+    "typedef unsigned long ulong;\n"
+    "typedef long long llong;\n"
+    "typedef unsigned long long ullong;\n"
+    "\n"
+    ;
 
 void genln(void) {
     genf("\n%.*s", gen_indent * 4, "                                                                  ");
@@ -27,14 +37,14 @@ void gen_str(const char *str) {
     genf("\"");
     while (*str) {
         const char *start = str;
-        while (*str && !char_to_escape[*(unsigned char *)str]) {
+        while (*str && !char_to_escape[(unsigned char)*str]) {
             str++;
         }
         if (start != str) {
             genf("%.*s", str - start, start);
         }
-        if (*str && char_to_escape[*(unsigned char *)str]) {
-            genf("\\%c", char_to_escape[*(unsigned char *)str]);
+        if (*str && char_to_escape[(unsigned char)*str]) {
+            genf("\\%c", char_to_escape[(unsigned char)*str]);
             str++;
         }
     }
@@ -57,33 +67,18 @@ const char *cdecl_paren(const char *str, int b) {
 }
 
 const char *cdecl_name(Type *type) {
-    switch (type->kind) {
-    case TYPE_VOID:
-        return "void";
-    case TYPE_CHAR:
-        return "char";
-    case TYPE_INT:
-        return "int";
-    case TYPE_FLOAT:
-        return "float";
-    case TYPE_STRUCT:
-    case TYPE_UNION:
+    const char *type_name = type_names[type->kind];
+    if (type_name) {
+        return type_name;
+    } 
+    else {
+        assert(type->sym);
         return type->sym->name;
-    default:
-        assert(0);
-        return NULL;
     }
 }
 
 char *type_to_cdecl(Type *type, const char *str) {
     switch (type->kind) {
-    case TYPE_VOID:
-    case TYPE_CHAR:
-    case TYPE_INT:
-    case TYPE_FLOAT:
-    case TYPE_STRUCT:
-    case TYPE_UNION:
-        return strf("%s%s%s", cdecl_name(type), *str ? " " : "", str);
     case TYPE_PTR:
         return type_to_cdecl(type->ptr.elem, cdecl_paren(strf("*%s", str), *str));
     case TYPE_ARRAY:
@@ -103,8 +98,7 @@ char *type_to_cdecl(Type *type, const char *str) {
         return type_to_cdecl(type->func.ret, result);
     }
     default:
-        assert(0);
-        return NULL;
+        return strf("%s%s%s", cdecl_name(type), *str ? " " : "", str);
     }
 }
 

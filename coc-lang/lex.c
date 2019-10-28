@@ -225,7 +225,7 @@ const char *line_start;
 void error(SrcPos pos, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    printf("%s(%d): ", pos.name, pos.line);
+    printf("%s(%d): error: ", pos.name, pos.line);
     vprintf(fmt, args);
     printf("\n");
     va_end(args);
@@ -284,12 +284,12 @@ void scan_int(void) {
     }
     int val = 0;
     for (;;) {
-        int digit = char_to_digit[*(unsigned char *)stream];
+        int digit = char_to_digit[(unsigned char)*stream];
         if (digit == 0 && *stream != '0') {
             break;
         }
         if (digit >= base) {
-            syntax_error("Digit '%c' out of range for base %" PRIu64 "\n", *stream, base);
+            syntax_error("Digit '%c' out of range for base %" PRIu64, *stream, base);
             digit = 0;
         }
         if (val > (INT_MAX - digit)/base) {
@@ -361,7 +361,7 @@ void scan_char(void) {
     } 
     else if (*stream == '\\') {
         stream++;
-        val = escape_to_char[*(unsigned char *)stream];
+        val = escape_to_char[(unsigned char)*stream];
         if (val == 0 && *stream != '0') {
             syntax_error("Invalid char literal escape '\\%c'", *stream);
         }
@@ -394,7 +394,7 @@ void scan_str(void) {
         } 
         else if (val == '\\') {
             stream++;
-            val = escape_to_char[*(unsigned char *)stream];
+            val = escape_to_char[(unsigned char)*stream];
             if (val == 0 && *stream != '0') {
                 syntax_error("Invalid string literal escape '\\%c'", *stream);
             }

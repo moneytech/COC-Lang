@@ -1,13 +1,29 @@
+var c: char = 1
+var uc: uchar = 1
+var sc: schar = 1
+
 const N = (:char)42 + 8 != 0
 
 typedef A = int[1 + 2*sizeof(h())]
 
-func h(): int {
-    return 42;
+func h(): uchar {
+    x := uint{1} + long{2};
+    y := +c;
+    return x;
 }
 
 func g(u: U): int {
     return u.i;
+}
+
+func k(vp: void*, ip: int*) {
+    vp = ip;
+    ip = vp;
+}
+
+func f1() {
+    p := &int{0};
+    *p = 42;
 }
 
 typedef U = IntOrPtr
@@ -36,8 +52,8 @@ var array: int[] = {1, 2, 3, [10]=4}
 func is_even(digit: int): int {
     b := 0;
     switch (digit) {
-        case 0, 2, 4, 6, 8:
-            b = 1;
+    case 0, 2, 4, 6, 8:
+        b = 1;
     }
     return b;
 }
@@ -81,7 +97,7 @@ struct T {
 
 func benchmark(n: int) {
     r := 1;
-    for (i := 1; i < n; i++) {
+    for (i := 1; i <= n; i++) {
         r *= i;
     }
 }
