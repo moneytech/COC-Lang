@@ -28,7 +28,7 @@ void print_typespec(Typespec *type) {
     case TYPESPEC_NAME:
         printf("%s", t->name);
         break;
-    case TYPESPEC_FUNC: {
+    case TYPESPEC_FUNC:
         printf("(func (");
         for (Typespec **it = t->func.args; it != t->func.args + t->func.num_args; it++) {
             printf(" ");
@@ -43,7 +43,6 @@ void print_typespec(Typespec *type) {
         }
         printf(")");
         break;
-    }
     case TYPESPEC_ARRAY:
         printf("(array ");
         print_typespec(t->array.elem);

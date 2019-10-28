@@ -17,11 +17,11 @@ typedef enum TypeKind {
     TYPE_FLOAT,
     TYPE_DOUBLE,
     TYPE_PTR,
+    TYPE_FUNC,
     TYPE_ARRAY,
     TYPE_STRUCT,
     TYPE_UNION,
     TYPE_ENUM,
-    TYPE_FUNC,
     NUM_TYPE_KINDS,
 } TypeKind;
 
@@ -54,6 +54,7 @@ struct Type {
         struct {
             Type **params;
             size_t num_params;
+            int variadic;
             Type *ret;
         } func;
     };
@@ -83,6 +84,7 @@ Type *type_float = &(Type){TYPE_FLOAT, 4, 4};
 Type *type_double = &(Type){TYPE_DOUBLE, 8, 8};
 
 #define type_usize type_ullong
+#define type_ssize type_llong
 
 const size_t PTR_SIZE = 8;
 const size_t PTR_ALIGN = 8;
@@ -97,6 +99,10 @@ int is_floating_type(Type *type) {
 
 int is_arithmetic_type(Type *type) {
     return TYPE_CHAR && type->kind && type->kind <= TYPE_DOUBLE;
+}
+
+int is_scalar_type(Type *type) {
+    return TYPE_CHAR <= type->kind && type->kind <= TYPE_FUNC;
 }
 
 int is_signed_type(Type *type) {
@@ -226,15 +232,16 @@ Type *type_array(Type *elem, size_t size) {
 typedef struct CachedFuncType {
     Type **params;
     size_t num_params;
+    int variadic;
     Type *ret;
     Type *func;
 } CachedFuncType;
 
 CachedFuncType *cached_func_types;
 
-Type *type_func(Type **params, size_t num_params, Type *ret) {
+Type *type_func(Type **params, size_t num_params, Type *ret, int variadic) {
     for (CachedFuncType *it = cached_func_types; it != buf_end(cached_func_types); it++) {
-        if (it->num_params == num_params && it->ret == ret) {
+        if (it->num_params == num_params && it->ret == ret && it->variadic == variadic) {
             int match = true;
             for (size_t i = 0; i < num_params; i++) {
                 if (it->params[i] != params[i]) {
@@ -252,6 +259,7 @@ Type *type_func(Type **params, size_t num_params, Type *ret) {
     type->align = PTR_ALIGN;
     type->func.params = memdup(params, num_params * sizeof(*params));
     type->func.num_params = num_params;
+    type->func.variadic = variadic;
     type->func.ret = ret;
     buf_push(cached_func_types, (CachedFuncType){params, num_params, ret, type});
     return type;
@@ -531,7 +539,7 @@ Operand operand_const(Type *type, Val val) {
             operand->val.d = (double)operand->val.t; \
             break; \
         default: \
-            assert(0); \
+            operand->is_const = false; \
             break; \
         } \
         break;
@@ -584,7 +592,7 @@ int convert_operand(Operand *operand, Type *type) {
 
 #undef CASE
 
-Val convert_const(Type *dest_type, Type *src_type, Val src_val) {
+Val convert_val(Type *dest_type, Type *src_type, Val src_val) {
     Operand operand = operand_const(src_type, src_val);
     convert_operand(&operand, dest_type);
     return operand.val;
@@ -625,6 +633,8 @@ void unify_arithmetic_operands(Operand *left, Operand *right) {
         convert_operand(left, type_float);
     } 
     else {
+        assert(is_integer_type(left->type));
+        assert(is_integer_type(right->type));
         promote_operand(left);
         promote_operand(right);
         if (left->type != right->type) {
@@ -658,12 +668,12 @@ void unify_arithmetic_operands(Operand *left, Operand *right) {
     assert(left->type == right->type);
 }
 
-Type *unify_arithmetic_types(Type *left, Type *right) {
-    Operand left_operand = operand_rvalue(left);
-    Operand right_operand = operand_rvalue(right);
-    unify_arithmetic_operands(&left_operand, &right_operand);
-    assert(left_operand.type == right_operand.type);
-    return left_operand.type;
+Type *unify_arithmetic_types(Type *left_type, Type *right_type) {
+    Operand left = operand_rvalue(left_type);
+    Operand right = operand_rvalue(right_type);
+    unify_arithmetic_operands(&left, &right);
+    assert(left.type == right.type);
+    return left.type;
 }
 
 Sym *resolve_name(const char *name);
@@ -714,7 +724,7 @@ Type *resolve_typespec(Typespec *typespec) {
         if (typespec->func.ret) {
             ret = resolve_typespec(typespec->func.ret);
         }
-        result = type_func(args, buf_len(args), ret);
+        result = type_func(args, buf_len(args), ret, false);
         break;
     }
     default:
@@ -813,7 +823,7 @@ Type *resolve_decl_func(Decl *decl) {
     if (decl->func.ret_type) {
         ret_type = resolve_typespec(decl->func.ret_type);
     }
-    return type_func(params, buf_len(params), ret_type);
+    return type_func(params, buf_len(params), ret_type, decl->func.variadic);
 }
 
 void resolve_stmt(Stmt *stmt, Type *ret_type);
@@ -831,6 +841,20 @@ void resolve_stmt_block(StmtList block, Type *ret_type) {
         resolve_stmt(block.stmts[i], ret_type);
     }
     sym_leave(scope);
+}
+
+void resolve_stmt_assign(Stmt *stmt) {
+    assert(stmt->kind == STMT_ASSIGN);
+    Operand left = resolve_expr(stmt->assign.left);
+    if (!left.is_lvalue) {
+        fatal_error(stmt->pos, "Cannot assign to non-lvalue");
+    }
+    if (stmt->assign.right) {
+        Operand right = resolve_expected_expr(stmt->assign.right, left.type);
+        if (!convert_operand(&right, left.type)) {
+            fatal_error(stmt->pos, "Illegal conversion in assignment statement");
+        }
+    }
 }
 
 void resolve_stmt(Stmt *stmt, Type *ret_type) {
@@ -894,19 +918,9 @@ void resolve_stmt(Stmt *stmt, Type *ret_type) {
         }
         break;
     }
-    case STMT_ASSIGN: {
-        Operand left = resolve_expr(stmt->assign.left);
-        if (!left.is_lvalue) {
-            fatal_error(stmt->pos, "Cannot assign to non-lvalue");
-        }
-        if (stmt->assign.right) {
-            Operand right = resolve_expr(stmt->assign.right);
-            if (!convert_operand(&right, left.type)) {
-                fatal_error(stmt->pos, "Illegal conversion in assignment statement");
-            }
-        }
+    case STMT_ASSIGN: 
+        resolve_stmt_assign(stmt);
         break;
-    }
     case STMT_INIT:
         sym_push_var(stmt->init.name, resolve_expr(stmt->init.expr).type);
         break;
@@ -1187,6 +1201,16 @@ Operand resolve_expr_name(Expr *expr) {
     }
 }
 
+Operand resolve_unary_op(TokenKind op, Operand operand) {
+    promote_operand(&operand);
+    if (operand.is_const) {
+        return operand_const(operand.type, eval_unary_op(op, operand.type, operand.val));
+    } 
+    else {
+        return operand;
+    }
+}
+
 Operand resolve_expr_unary(Expr *expr) {
     assert(expr->kind == EXPR_UNARY);
     Operand operand = resolve_expr(expr->unary.expr);
@@ -1204,31 +1228,162 @@ Operand resolve_expr_unary(Expr *expr) {
             fatal_error(expr->pos, "Cannot take address of non-lvalue");
         }
         return operand_rvalue(type_ptr(type));
-    default:
+    case TOKEN_ADD:
+    case TOKEN_SUB:
+        if (!is_arithmetic_type(type)) {
+            fatal_error(expr->pos, "Can only use unary %s with arithmetic types", token_kind_name(expr->unary.op));
+        }
+        return resolve_unary_op(expr->unary.op, operand);
+    case TOKEN_NEG:
         if (!is_integer_type(type)) {
-            fatal_error(expr->pos, "Can only use unary %s with integer types", token_kind_name(expr->unary.op));
+            fatal_error(expr->pos, "Can only use ~ with integer types", token_kind_name(expr->unary.op));
         }
-        promote_operand(&operand);
-        if (operand.is_const) {
-            return operand_const(operand.type, eval_unary_op(expr->unary.op, operand.type, operand.val));
-        } 
-        else {
-            return operand;
-        }
+        return resolve_unary_op(expr->unary.op, operand);
+    default:
+        assert(0);
+        break;
     }
+    return (Operand){0};
+}
+
+Operand resolve_binary_op(TokenKind op, Operand left, Operand right) {
+    if (left.is_const && right.is_const) {
+        return operand_const(left.type, eval_binary_op(op, left.type, left.val, right.val));
+    } else {
+        return operand_rvalue(left.type);
+    }
+}
+
+Operand resolve_binary_arithmetic_op(TokenKind op, Operand left, Operand right) {
+    unify_arithmetic_operands(&left, &right);
+    return resolve_binary_op(op, left, right);
 }
 
 Operand resolve_expr_binary(Expr *expr) {
     assert(expr->kind == EXPR_BINARY);
     Operand left = resolve_expr(expr->binary.left);
     Operand right = resolve_expr(expr->binary.right);
-    unify_arithmetic_operands(&left, &right);
-    if (left.is_const && right.is_const) {
-        return operand_const(left.type, eval_binary_op(expr->binary.op, left.type, left.val, right.val));
+    TokenKind op = expr->binary.op;
+    const char *op_name = token_kind_name(op);
+    switch (op) {
+    case TOKEN_MUL:
+    case TOKEN_DIV:
+        if (!is_arithmetic_type(left.type)) {
+            fatal_error(expr->binary.left->pos, "Left operand of %s must have arithmetic type", op_name);
+        }
+        if (!is_arithmetic_type(right.type)) {
+            fatal_error(expr->binary.right->pos, "Right operand of %s must have arithmetic type", op_name);
+        }
+        return resolve_binary_arithmetic_op(op, left, right);
+    case TOKEN_MOD:
+        if (!is_integer_type(left.type)) {
+            fatal_error(expr->binary.left->pos, "Left operand of %% must have integer type");
+        }
+        if (!is_integer_type(right.type)) {
+            fatal_error(expr->binary.right->pos, "Right operand of %% must have integer type");
+        }
+        return resolve_binary_arithmetic_op(op, left, right);
+    case TOKEN_ADD:
+        if (is_arithmetic_type(left.type) && is_arithmetic_type(right.type)) {
+            return resolve_binary_arithmetic_op(op, left, right);
+        } 
+        else if (left.type->kind == TYPE_PTR && is_integer_type(right.type)) {
+            return operand_rvalue(left.type);
+        } 
+        else if (right.type->kind == TYPE_PTR && is_integer_type(left.type)) {
+            return operand_rvalue(right.type);
+        } 
+        else {
+            fatal_error(expr->pos, "Operands of + must both have arithmetic type, or pointer and integer type");
+        }
+        break;
+    case TOKEN_SUB:
+        if (is_arithmetic_type(left.type) && is_arithmetic_type(right.type)) {
+            return resolve_binary_arithmetic_op(op, left, right);
+        } 
+        else if (left.type->kind == TYPE_PTR && is_integer_type(right.type)) {
+            return operand_rvalue(left.type);
+        } 
+        else if (left.type->kind == TYPE_PTR && right.type->kind == TYPE_PTR) {
+            if (left.type->ptr.elem != right.type->ptr.elem) {
+                fatal_error(expr->pos, "Cannot subtract pointers to different types");
+            }
+            return operand_rvalue(type_ssize);
+        } 
+        else {
+            fatal_error(expr->pos, "Operands of - must both have arithmetic type, pointer and integer type, or compatible pointer types");
+        }
+        break;
+    case TOKEN_LSHIFT:
+    case TOKEN_RSHIFT:
+        if (is_integer_type(left.type) && is_integer_type(right.type)) {
+            promote_operand(&left);
+            promote_operand(&right);
+            Type *result_type = left.type;
+            Operand result;
+            if (is_signed_type(left.type)) {
+                convert_operand(&left, type_llong);
+                convert_operand(&right, type_llong);
+            } 
+            else {
+                convert_operand(&left, type_ullong);
+                convert_operand(&right, type_ullong);
+            }
+            result = resolve_binary_op(op, left, right);
+            convert_operand(&result, result_type);
+            return result;
+        } 
+        else {
+            fatal_error(expr->pos, "Operands of %s must both have integer type", op_name);
+        }
+        break;
+    case TOKEN_LT:
+    case TOKEN_LTEQ:
+    case TOKEN_GT:
+    case TOKEN_GTEQ:
+    case TOKEN_EQ:
+    case TOKEN_NOTEQ:
+        if (is_arithmetic_type(left.type) && is_arithmetic_type(right.type)) {
+            Operand result = resolve_binary_arithmetic_op(op, left, right);
+            convert_operand(&result, type_int);
+            return result;
+        } 
+        else if (left.type->kind == TYPE_PTR && right.type->kind == TYPE_PTR) {
+            if (left.type->ptr.elem != right.type->ptr.elem) {
+                fatal_error(expr->pos, "Cannot compare pointers to different types");
+            }
+            return operand_rvalue(type_int);
+        } 
+        else {
+            // TODO: handle null pointer constants
+            fatal_error(expr->pos, "Operands of %s must be arithmetic types or compatible pointer types", op_name);
+        }
+        break;
+    case TOKEN_AND:
+    case TOKEN_XOR:
+    case TOKEN_OR:
+        if (is_integer_type(left.type) && is_integer_type(right.type)) {
+            return resolve_binary_arithmetic_op(op, left, right);
+        } 
+        else {
+            fatal_error(expr->pos, "Operands of %s must have arithmetic types", op_name);
+        }
+        break;
+    case TOKEN_AND_AND:
+    case TOKEN_OR_OR:
+        // TODO: const expr evaluation
+        if (is_scalar_type(left.type) && is_scalar_type(right.type)) {
+            return operand_rvalue(type_int);
+        } 
+        else {
+            fatal_error(expr->pos, "Operands of %s must have scalar types", op_name);
+        }
+        break;
+    default:
+        assert(0);
+        break;
     }
-    else {
-        return operand_rvalue(left.type);
-    }
+    return (Operand){0};
 }
 
 int aggregate_field_index(Type *type, const char *name) {
@@ -1313,14 +1468,16 @@ Operand resolve_expr_compound(Expr *expr, Type *expected_type) {
         }
     } 
     else {
-        if (expr->compound.num_fields != 1) {
-            fatal_error(expr->pos, "Compound literal for aggregate type must have exactly 1 field");
+        if (expr->compound.num_fields > 1) {
+            fatal_error(expr->pos, "Compound literal for scalar type cannot have more than one operand");
         }
-        CompoundField field = expr->compound.fields[0];
-        Operand init = resolve_expected_expr(field.init, type);
-        if (!convert_operand(&init, type)) {
-            fatal_error(field.pos, "Illegal conversion in compound literal initializer");
-        }
+        if (expr->compound.num_fields == 1) {
+            CompoundField field = expr->compound.fields[0];
+            Operand init = resolve_expected_expr(field.init, type);
+            if (!convert_operand(&init, type)) {
+                fatal_error(field.pos, "Illegal conversion in compound literal initializer");
+            }
+        }   
     }
     return operand_lvalue(type);
 }
@@ -1331,15 +1488,22 @@ Operand resolve_expr_call(Expr *expr) {
     if (func.type->kind != TYPE_FUNC) {
         fatal_error(expr->pos, "Trying to call non-function value");
     }
-    if (expr->call.num_args != func.type->func.num_params) {
-        fatal_error(expr->pos, "Tried to call function with wrong number of arguments");
+    size_t num_params = func.type->func.num_params;
+    if (expr->call.num_args < num_params) {
+        fatal_error(expr->pos, "Tried to call function with too few arguments");
     }
-    for (size_t i = 0; i < expr->call.num_args; i++) {
+    if (expr->call.num_args > num_params && !func.type->func.variadic) {
+        fatal_error(expr->pos, "Tried to call function with too many arguments");
+    }
+    for (size_t i = 0; i < num_params; i++) {
         Type *param_type = func.type->func.params[i];
         Operand arg = resolve_expected_expr(expr->call.args[i], param_type);
         if (!convert_operand(&arg, param_type)) {
             fatal_error(expr->call.args[i]->pos, "Illegal conversion in call argument expression");
         }
+    }
+    for (size_t i = num_params; i < expr->call.num_args; i++) {
+        resolve_expr(expr->call.args[i]);
     }
     return operand_rvalue(func.type->func.ret);
 }
@@ -1347,19 +1511,25 @@ Operand resolve_expr_call(Expr *expr) {
 Operand resolve_expr_ternary(Expr *expr, Type *expected_type) {
     assert(expr->kind == EXPR_TERNARY);
     Operand cond = ptr_decay(resolve_expr(expr->ternary.cond));
-    if (cond.type->kind != TYPE_INT && cond.type->kind != TYPE_PTR) {
-        fatal_error(expr->pos, "Ternary cond expression must have type int or ptr");
+    if (!is_scalar_type(cond.type)) {
+        fatal_error(expr->pos, "Ternary conditional must have scalar type");
     }
-    Operand then_expr = ptr_decay(resolve_expected_expr(expr->ternary.then_expr, expected_type));
-    Operand else_expr = ptr_decay(resolve_expected_expr(expr->ternary.else_expr, expected_type));
-    if (then_expr.type != else_expr.type) {
-        fatal_error(expr->pos, "Ternary then/else expressions must have matching types");
-    }
-    if (cond.is_const && then_expr.is_const && else_expr.is_const) {
-        return operand_const(then_expr.type, cond.val.i ? then_expr.val : else_expr.val);
-    }
+    Operand left = ptr_decay(resolve_expected_expr(expr->ternary.then_expr, expected_type));
+    Operand right = ptr_decay(resolve_expected_expr(expr->ternary.else_expr, expected_type));
+    if (is_arithmetic_type(left.type) && is_arithmetic_type(right.type)) {
+        unify_arithmetic_operands(&left, &right);
+        if (cond.is_const && left.is_const && right.is_const) {
+            return operand_const(left.type, cond.val.i ? left.val : right.val);
+        } 
+        else {
+            return operand_rvalue(left.type);
+        }
+    } 
+    else if (left.type == right.type) {
+        return operand_rvalue(left.type);
+    } 
     else {
-        return operand_rvalue(then_expr.type);
+        fatal_error(expr->pos, "Left and right operands of ternary expression must have arithmetic types or identical types");
     }
 }
 
@@ -1456,7 +1626,7 @@ Operand resolve_expr(Expr *expr) {
 Operand resolve_const_expr(Expr *expr) {
     Operand result = resolve_expr(expr);
     if (!result.is_const) {
-        fatal("Expected constant expression");
+        fatal_error(expr->pos, "Expected constant expression");
     }
     return result;
 }
@@ -1475,9 +1645,6 @@ sym_global_type("void", type_void);
     sym_global_type("llong", type_llong);
     sym_global_type("ullong", type_ullong);
     sym_global_type("float", type_float);
-
-    sym_global_func("puts", type_func((Type*[]){type_ptr(type_char)}, 1, type_int));
-    sym_global_func("getchar", type_func(NULL, 0, type_int));
 }
 
 void sym_global_decls(DeclSet *declset) {
@@ -1516,10 +1683,10 @@ void resolve_test(void) {
     assert(unify_arithmetic_types(type_long, type_uint) == type_ulong);
     assert(unify_arithmetic_types(type_llong, type_ulong) == type_llong);
 
-    assert(convert_const(type_int, type_char, (Val){.c = 100}).i == 100);
-    assert(convert_const(type_int, type_char, (Val){.c = -1}).i == -1);
-    assert(convert_const(type_uint, type_int, (Val){.i = -1}).u == UINT_MAX);
-    assert(convert_const(type_uint, type_ullong, (Val){.ull = ULLONG_MAX}).u == UINT_MAX);
+    assert(convert_val(type_int, type_char, (Val){.c = 100}).i == 100);
+    assert(convert_val(type_int, type_char, (Val){.c = -1}).i == -1);
+    assert(convert_val(type_uint, type_int, (Val){.i = -1}).u == UINT_MAX);
+    assert(convert_val(type_uint, type_ullong, (Val){.ull = ULLONG_MAX}).u == UINT_MAX);
 
     Type *int_ptr = type_ptr(type_int);
     assert(type_ptr(type_int) == int_ptr);
@@ -1533,11 +1700,11 @@ void resolve_test(void) {
     Type *float3_array = type_array(type_float, 3);
     assert(type_array(type_float, 3) == float3_array);
     assert(float4_array != float3_array);
-    Type *int_int_func = type_func(&type_int, 1, type_int);
-    assert(type_func(&type_int, 1, type_int) == int_int_func);
-    Type *int_func = type_func(NULL, 0, type_int);
+    Type *int_int_func = type_func(&type_int, 1, type_int, false);
+    assert(type_func(&type_int, 1, type_int, false) == int_int_func);
+    Type *int_func = type_func(NULL, 0, type_int, false);
     assert(int_int_func != int_func);
-    assert(int_func == type_func(NULL, 0, type_int));
+    assert(int_func == type_func(NULL, 0, type_int, false));
 
     init_global_syms();
 

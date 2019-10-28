@@ -22,6 +22,8 @@ const char *first_keyword;
 const char *last_keyword;
 const char **keywords;
 
+const char *foreign_name;
+
 #define KEYWORD(name) name##_keyword = str_intern(#name); buf_push(keywords, name##_keyword)
 
 void init_keywords(void) {
@@ -53,6 +55,7 @@ void init_keywords(void) {
     assert(intern_arena.end == arena_end);
     first_keyword = typedef_keyword;
     last_keyword = default_keyword;
+    foreign_name = str_intern("foreign");
     inited = true;
 }
 
@@ -73,6 +76,8 @@ typedef enum TokenKind {
     TOKEN_RBRACKET,
     TOKEN_COMMA,
     TOKEN_DOT,
+    TOKEN_AT,
+    TOKEN_ELLIPSIS,
     TOKEN_QUESTION,
     TOKEN_SEMICOLON,
     TOKEN_KEYWORD,
@@ -147,6 +152,8 @@ const char *token_kind_names[] = {
     [TOKEN_RBRACKET] = "]",
     [TOKEN_COMMA] = ",",
     [TOKEN_DOT] = ".",
+    [TOKEN_AT] = "@",
+    [TOKEN_ELLIPSIS] = "...",
     [TOKEN_QUESTION] = "?",
     [TOKEN_SEMICOLON] = ";",
     [TOKEN_KEYWORD] = "keyword",
@@ -154,6 +161,7 @@ const char *token_kind_names[] = {
     [TOKEN_FLOAT] = "float",
     [TOKEN_STR] = "string",
     [TOKEN_NAME] = "name",
+    [TOKEN_NEG] = "~",
     [TOKEN_MUL] = "*",
     [TOKEN_DIV] = "/",
     [TOKEN_MOD] = "%",
@@ -186,8 +194,6 @@ const char *token_kind_names[] = {
     [TOKEN_INC] = "++",
     [TOKEN_DEC] = "--",
     [TOKEN_COLON_ASSIGN] = ":=",
-    [TOKEN_NEG] = "~",
-    [TOKEN_NOT] = "!",
 };
 
 const char *token_kind_name(TokenKind kind) {
@@ -195,7 +201,7 @@ const char *token_kind_name(TokenKind kind) {
         return token_kind_names[kind];
     } 
     else {
-        return "<UNKNOWN>";
+        return "<unknown>";
     }
 }
 
@@ -293,7 +299,7 @@ void scan_int(void) {
             digit = 0;
         }
         if (val > (INT_MAX - digit)/base) {
-            syntax_error("Integer literal overflow.");
+            syntax_error("Integer literal overflow");
             while (isdigit(*stream)) {
                 stream++;
             }
@@ -466,6 +472,10 @@ repeat:
         if (isdigit(stream[1])) {
             scan_float();
         } 
+        else if (stream[1] == '.' && stream[2] == '.') {
+            token.kind = TOKEN_ELLIPSIS;
+            stream += 3;
+        } 
         else {
             token.kind = TOKEN_DOT;
             stream++;
@@ -553,6 +563,7 @@ repeat:
     CASE1('[', TOKEN_LBRACKET)
     CASE1(']', TOKEN_RBRACKET)
     CASE1(',', TOKEN_COMMA)
+    CASE1('@', TOKEN_AT)
     CASE1('?', TOKEN_QUESTION)
     CASE1(';', TOKEN_SEMICOLON)
     CASE1('~', TOKEN_NEG)
@@ -629,7 +640,7 @@ int expect_token(TokenKind kind) {
         return true;
     } 
     else {
-        fatal_syntax_error("expected token %s, got %s", token_kind_name(kind), token_info());
+        fatal_syntax_error("Expected token %s, got %s", token_kind_name(kind), token_info());
         return false;
     }
 }

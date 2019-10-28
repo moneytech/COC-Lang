@@ -94,6 +94,9 @@ char *type_to_cdecl(Type *type, const char *str) {
                 buf_printf(result, "%s%s", i == 0 ? "" : ", ", type_to_cdecl(type->func.params[i], ""));
             }
         }
+        if (type->func.variadic) {
+            buf_printf(result, ", ...");
+        }
         buf_printf(result, ")");
         return type_to_cdecl(type->func.ret, result);
     }
@@ -133,6 +136,9 @@ char *typespec_to_cdecl(Typespec *typespec, const char *str) {
                 buf_printf(result, "%s%s", i == 0 ? "" : ", ", typespec_to_cdecl(typespec->func.args[i], ""));
             }
         }
+        if (typespec->func.variadic) {
+            buf_printf(result, ", ...");
+        }
         buf_printf(result, ")");
         return typespec_to_cdecl(typespec->func.ret, result);
     }
@@ -162,6 +168,9 @@ void gen_func_decl(Decl *decl) {
             }
             genf("%s", typespec_to_cdecl(param.type, param.name));
         }
+    }
+    if (decl->func.variadic) {
+        genf(", ...");
     }
     genf(")");
 }
@@ -226,6 +235,9 @@ void gen_expr_compound(Expr *expr, bool is_init) {
             genf("] = ");
         }
         gen_expr(field.init);
+    }
+    if (expr->compound.num_fields == 0) {
+        genf("0");
     }
     genf("}");
 }
@@ -487,8 +499,10 @@ void gen_decl(Sym *sym) {
         genf(";");
         break;
     case DECL_FUNC:
-        gen_func_decl(decl);
-        genf(";");
+        if (!is_decl_foreign(decl)) {
+            gen_func_decl(decl);
+            genf(";");
+        }
         break;
     case DECL_STRUCT:
     case DECL_UNION:
@@ -530,10 +544,12 @@ void gen_func_defs(void) {
         Sym *sym = *it;
         Decl *decl = sym->decl;
         if (decl && decl->kind == DECL_FUNC) {
-            gen_func_decl(decl);
-            genf(" ");
-            gen_stmt_block(decl->func.block);
-            genln();
+            if (!is_decl_foreign(decl)) {
+                gen_func_decl(decl);
+                genf(" ");
+                gen_stmt_block(decl->func.block);
+                genln();
+            }
         }
     }
 }
