@@ -26,17 +26,17 @@ typedef struct S2 S2;
 typedef union IntOrPtr IntOrPtr;
 typedef struct Vector Vector;
 typedef struct T T;
-typedef enum Color Color;
 typedef struct ConstVector ConstVector;
 
 // Sorted declarations
 #line 161 "test1.coc"
-enum Color {
+typedef enum Color {
     COLOR_NONE,
     COLOR_RED,
     COLOR_GREEN,
     COLOR_BLUE,
-};
+    NUM_COLORS,
+} Color;
 
 #line 10
 #define PI (3.140000f)
@@ -127,7 +127,7 @@ int fact_iter(int n);
 char const ((escape_to_char[256])) = {['n'] = '\n', ['r'] = '\r', ['t'] = '\t', ['v'] = '\v', ['b'] = '\b', ['a'] = '\a', ['0'] = 0};
 
 #line 108
-int (a2[18324301874724875]) = {1, 2, 3, [10] = 4};
+int (a2[18327557459935243]) = {1, 2, 3, [10] = 4};
 
 #line 111
 int is_even(int digit);
@@ -149,64 +149,70 @@ struct T {
     int (a[M]);
 };
 
-#line 168
+#line 169
+char const ((*(color_names[NUM_COLORS]))) = {[COLOR_NONE] = "none", [COLOR_RED] = "red", [COLOR_GREEN] = "green", [COLOR_BLUE] = "blue"};
+
+#line 176
 void test_enum(void);
 
-#line 177
+#line 185
+void test_assign(void);
+
+#line 206
 void benchmark(int n);
 
-#line 184
+#line 213
 int va_test(int x, ...);
 
-#line 188
+#line 217
 typedef int (*F)(int, ...);
 
 void test_lits(void);
 
-#line 205
+#line 234
 void test_ops(void);
 
-#line 235
+#line 264
 #define IS_DEBUG (true)
 
 void test_bool(void);
 
-#line 244
+#line 273
 int test_ctrl(void);
 
-#line 254
+#line 283
 int const (j);
 
-#line 255
+#line 284
 int const ((*q));
 
-#line 256
+#line 285
 Vector const (cv);
 
 void f4(char const ((*x)));
 
-#line 261
+#line 290
 struct ConstVector {
     int const (x);
-    #line 262
+    #line 291
     int const (y);
 };
 
 void f5(int const ((*p)));
 
-#line 268
+#line 297
 void test_convert(void);
 
-#line 276
+#line 305
 void test_const(void);
 
-#line 299
+#line 328
 void test_init(void);
 
-#line 310
+#line 339
 void test_cast(void);
 
-#line 319
+#line 348
 int main(int argc, char const ((*(*argv))));
 
 // Function definitions
@@ -300,7 +306,7 @@ int fact_rec(int n) {
     }
 }
 
-#line 168
+#line 176
 void test_enum(void) {
     Color a = COLOR_RED;
     Color b = COLOR_RED;
@@ -310,6 +316,26 @@ void test_enum(void) {
     (printf)("%d %d %d %d\n", COLOR_NONE, COLOR_RED, COLOR_GREEN, COLOR_BLUE);
 }
 
+void test_assign(void) {
+    int i = 0;
+    float f = 3.140000f;
+    int (*p) = &(i);
+    i++;
+    i--;
+    p++;
+    p--;
+    p += 1;
+    i /= 2;
+    i *= 123;
+    i %= 3;
+    i <<= 1;
+    i >>= 2;
+    i &= 0xff;
+    i |= 0xff00;
+    i ^= 0xff0;
+}
+
+#line 206
 void benchmark(int n) {
     int r = 1;
     for (int i = 1; (i) <= (n); i++) {
@@ -321,7 +347,7 @@ int va_test(int x, ...) {
     return 0;
 }
 
-#line 190
+#line 219
 void test_lits(void) {
     float f = 3.140000f;
     double d = 3.140000;
@@ -367,7 +393,7 @@ void test_ops(void) {
     b = (p) && (pi);
 }
 
-#line 237
+#line 266
 void test_bool(void) {
     bool b = false;
     b = true;
@@ -376,20 +402,24 @@ void test_bool(void) {
 }
 
 int test_ctrl(void) {
-    while (1) {
-        while (1) {
-            break;
-        }
-        return 42;
+    switch (1) {
+    case 0: {
+        return 0;
+        break;
     }
-    return 0;
+    default: {
+        #line 278
+        return 1;
+        break;
+    }
+    }
 }
 
-#line 258
+#line 287
 void f4(char const ((*x))) {
 }
 
-#line 265
+#line 294
 void f5(int const ((*p))) {
 }
 
@@ -403,22 +433,22 @@ void test_convert(void) {
 
 void test_const(void) {
     ConstVector cv2 = {1, 2};
-    #line 279
+    #line 308
     int i = 0;
     i = 1;
-    #line 283
+    #line 312
     int x = cv.x;
-    #line 285
+    #line 314
     char c = escape_to_char[0];
-    #line 287
+    #line 316
     (f4)(escape_to_char);
     char const ((*p)) = (char const (*))(0);
     p = (escape_to_char) + (1);
     char (*q) = (char *)(escape_to_char);
     c = q['n'];
-    #line 293
+    #line 322
     p = (char const (*))(1);
-    #line 296
+    #line 325
     i = (int)((ullong)(p));
 }
 
@@ -436,9 +466,9 @@ void test_init(void) {
 void test_cast(void) {
     int (*p) = 0;
     uint64 a = 0;
-    #line 314
+    #line 343
     a = (uint64)(p);
-    #line 316
+    #line 345
     p = (int *)(a);
 }
 
@@ -446,6 +476,7 @@ int main(int argc, char const ((*(*argv)))) {
     if ((argv) == (0)) {
         (printf)("argv is null\n");
     }
+    (test_assign)();
     (test_enum)();
     (test_arrays)();
     (test_cast)();
