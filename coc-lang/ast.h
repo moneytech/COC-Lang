@@ -92,6 +92,7 @@ struct Decl {
     const char *name;
     struct Sym *sym;
     Notes notes;
+    bool is_incomplete;
     union {
         Note note;
         struct {
@@ -107,7 +108,6 @@ struct Decl {
             size_t num_params;
             Typespec *ret_type;
             bool has_varargs;
-            bool is_incomplete;
             StmtList block;
         } func;
         struct {
