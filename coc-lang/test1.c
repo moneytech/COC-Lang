@@ -94,7 +94,7 @@ struct UartCtrl {
     bool rx_enable;
 };
 
-#define UART_CTRL ((uint *)(0x12345678))
+#define UART_CTRL_REG ((uint *)(0x12345678))
 
 uint32 pack(UartCtrl ctrl);
 
@@ -145,7 +145,7 @@ int fact_iter(int n);
 char const ((escape_to_char[256])) = {['n'] = '\n', ['r'] = '\r', ['t'] = '\t', ['v'] = '\v', ['b'] = '\b', ['a'] = '\a', ['0'] = 0};
 
 #line 130
-int (a2[18323838018256907]) = {1, 2, 3, [10] = 4};
+int (a2[18324460788514827]) = {1, 2, 3, [10] = 4};
 
 #line 133
 int is_even(int digit);
@@ -231,6 +231,9 @@ void test_init(void);
 void test_cast(void);
 
 #line 370
+void test_sizeof(void);
+
+#line 378
 int main(int argc, char const ((*(*argv))));
 
 // Function definitions
@@ -254,7 +257,7 @@ void test_nonmodifiable(void) {
 
 #line 66
 uint32 pack(UartCtrl ctrl) {
-    return ((ctrl.tx_enable) & (1)) | (((ctrl.rx_enable) & (1)) << (1));
+    return ((ctrl.tx_enable) & (1u)) | (((ctrl.rx_enable) & (1u)) << (1));
 }
 
 UartCtrl unpack(uint32 word) {
@@ -262,11 +265,11 @@ UartCtrl unpack(uint32 word) {
 }
 
 void test_uart(void) {
-    bool tx_enable = (unpack)(*(UART_CTRL)).tx_enable;
-    *(UART_CTRL) = (pack)((UartCtrl){.tx_enable = !(tx_enable), .rx_enable = false});
-    UartCtrl ctrl = (unpack)(*(UART_CTRL));
+    bool tx_enable = (unpack)(*(UART_CTRL_REG)).tx_enable;
+    *(UART_CTRL_REG) = (pack)((UartCtrl){.tx_enable = !(tx_enable), .rx_enable = false});
+    UartCtrl ctrl = (unpack)(*(UART_CTRL_REG));
     ctrl.rx_enable = true;
-    *(UART_CTRL) = (pack)(ctrl);
+    *(UART_CTRL_REG) = (pack)(ctrl);
 }
 
 uchar h(void) {
@@ -506,10 +509,19 @@ void test_cast(void) {
     p = (int *)(a);
 }
 
+void test_sizeof(void) {
+    int i = 0;
+    ullong n = sizeof(i);
+    n = sizeof(int);
+    n = sizeof(int);
+    n = sizeof(int *);
+}
+
 int main(int argc, char const ((*(*argv)))) {
     if ((argv) == (0)) {
         (printf)("argv is null\n");
     }
+    (test_sizeof)();
     (test_assign)();
     (test_enum)();
     (test_arrays)();
