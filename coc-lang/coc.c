@@ -32,11 +32,6 @@ const char *coc_compile_str(const char *str) {
     return result;
 }
 
-void coc_test(void) {
-    bool b = coc_compile_file("test1.coc");
-    assert(b);
-}
-
 int coc_main(int argc, char **argv) {
     if (argc < 2) {
         printf("Usage: %s <coc-source-file>\n", argv[0]);

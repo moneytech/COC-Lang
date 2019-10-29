@@ -64,10 +64,6 @@ vec2 dir2(vec2 a, vec2 b);
 vec2 rot2(float a, vec2 b);
 
 #line 60
-#define N ((ullong)(1))
-
-uint8 u8 = 123;
-
 int main(int argc, char (*(*argv)));
 
 // Function definitions
@@ -118,12 +114,10 @@ vec2 rot2(float a, vec2 b) {
     return (vec2){((c) * (b.x)) - ((s) * (b.y)), ((s) * (b.x)) + ((c) * (b.y))};
 }
 
-#line 64
 int main(int argc, char (*(*argv))) {
     vec2 v = {1, 0};
     vec2 w = {0, 1};
     v = (rot2)((3.140000f) / (4), v);
     w = (add2)(w, (vec2){0.100000f, 0.200000f});
-    int i = (int)(3.140000f);
     return 0;
 }
