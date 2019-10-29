@@ -23,13 +23,14 @@ typedef llong int64;
 // Forward declarations
 typedef struct S1 S1;
 typedef struct S2 S2;
+typedef struct UartCtrl UartCtrl;
 typedef union IntOrPtr IntOrPtr;
 typedef struct Vector Vector;
 typedef struct T T;
 typedef struct ConstVector ConstVector;
 
 // Sorted declarations
-#line 161 "test1.coc"
+#line 183 "test1.coc"
 typedef enum Color {
     COLOR_NONE,
     COLOR_RED,
@@ -54,7 +55,7 @@ schar sc = 1;
 
 #define N ((((char)(42)) + (8)) != (0))
 
-#line 60
+#line 82
 uchar h(void);
 
 #line 19
@@ -86,133 +87,150 @@ void test_arrays(void);
 #line 48
 void test_nonmodifiable(void);
 
-#line 129
+#line 60
+struct UartCtrl {
+    bool tx_enable;
+    #line 61
+    bool rx_enable;
+};
+
+#define UART_CTRL ((uint *)(0x12345678))
+
+uint32 pack(UartCtrl ctrl);
+
+#line 70
+UartCtrl unpack(uint32 word);
+
+#line 74
+void test_uart(void);
+
+#line 151
 struct Vector {
     int x;
-    #line 130
+    #line 152
     int y;
 };
 
-#line 87
+#line 109
 typedef IntOrPtr U;
 
-#line 93
+#line 115
 union IntOrPtr {
     int i;
     int (*p);
 };
 
-#line 70
+#line 92
 int g(U u);
 
-#line 74
+#line 96
 void k(void (*vp), int (*ip));
 
-#line 79
+#line 101
 void f1(void);
 
-#line 84
+#line 106
 void f3(int (a[]));
 
-#line 89
+#line 111
 int example_test(void);
 
-#line 145
+#line 167
 int fact_rec(int n);
 
-#line 137
+#line 159
 int fact_iter(int n);
 
-#line 98
+#line 120
 char const ((escape_to_char[256])) = {['n'] = '\n', ['r'] = '\r', ['t'] = '\t', ['v'] = '\v', ['b'] = '\b', ['a'] = '\a', ['0'] = 0};
 
-#line 108
-int (a2[18327557459935243]) = {1, 2, 3, [10] = 4};
-
-#line 111
-int is_even(int digit);
-
-#line 127
-int i;
+#line 130
+int (a2[18323838018256907]) = {1, 2, 3, [10] = 4};
 
 #line 133
-void f2(Vector v);
+int is_even(int digit);
+
+#line 149
+int i;
 
 #line 155
+void f2(Vector v);
+
+#line 177
 T (*p);
 
-#line 153
+#line 175
 #define M ((1) + (sizeof(p)))
 
-#line 157
+#line 179
 struct T {
     int (a[M]);
 };
 
-#line 169
+#line 191
 char const ((*(color_names[NUM_COLORS]))) = {[COLOR_NONE] = "none", [COLOR_RED] = "red", [COLOR_GREEN] = "green", [COLOR_BLUE] = "blue"};
 
-#line 176
+#line 198
 void test_enum(void);
 
-#line 185
+#line 207
 void test_assign(void);
 
-#line 206
+#line 228
 void benchmark(int n);
 
-#line 213
+#line 235
 int va_test(int x, ...);
 
-#line 217
+#line 239
 typedef int (*F)(int, ...);
 
 void test_lits(void);
 
-#line 234
+#line 256
 void test_ops(void);
 
-#line 264
+#line 286
 #define IS_DEBUG (true)
 
 void test_bool(void);
 
-#line 273
+#line 295
 int test_ctrl(void);
 
-#line 283
+#line 305
 int const (j);
 
-#line 284
+#line 306
 int const ((*q));
 
-#line 285
+#line 307
 Vector const (cv);
 
 void f4(char const ((*x)));
 
-#line 290
+#line 312
 struct ConstVector {
     int const (x);
-    #line 291
+    #line 313
     int const (y);
 };
 
 void f5(int const ((*p)));
 
-#line 297
+#line 319
 void test_convert(void);
 
-#line 305
+#line 327
 void test_const(void);
 
-#line 328
+#line 350
 void test_init(void);
 
-#line 339
+#line 361
 void test_cast(void);
 
-#line 348
+#line 370
 int main(int argc, char const ((*(*argv))));
 
 // Function definitions
@@ -234,7 +252,23 @@ void test_nonmodifiable(void) {
     s2.s1.a = 0;
 }
 
-#line 60
+#line 66
+uint32 pack(UartCtrl ctrl) {
+    return ((ctrl.tx_enable) & (1)) | (((ctrl.rx_enable) & (1)) << (1));
+}
+
+UartCtrl unpack(uint32 word) {
+    return (UartCtrl){.tx_enable = (word) & (0x1), .rx_enable = ((word) & (0x2)) >> (1)};
+}
+
+void test_uart(void) {
+    bool tx_enable = (unpack)(*(UART_CTRL)).tx_enable;
+    *(UART_CTRL) = (pack)((UartCtrl){.tx_enable = !(tx_enable), .rx_enable = false});
+    UartCtrl ctrl = (unpack)(*(UART_CTRL));
+    ctrl.rx_enable = true;
+    *(UART_CTRL) = (pack)(ctrl);
+}
+
 uchar h(void) {
     (Vector){.x = 1, .y = 2}.x = 42;
     Vector (*v) = &((Vector){1, 2});
@@ -262,12 +296,12 @@ void f1(void) {
 void f3(int (a[])) {
 }
 
-#line 89
+#line 111
 int example_test(void) {
     return ((fact_rec)(10)) == ((fact_iter)(10));
 }
 
-#line 111
+#line 133
 int is_even(int digit) {
     int b = 0;
     switch (digit) {
@@ -276,16 +310,16 @@ int is_even(int digit) {
     case 4:
     case 6:
     case 8: {
-        #line 115
+        #line 137
         b = 1;
         break;
     }
     }
-    #line 117
+    #line 139
     return b;
 }
 
-#line 133
+#line 155
 void f2(Vector v) {
     v = (Vector){0};
 }
@@ -306,7 +340,7 @@ int fact_rec(int n) {
     }
 }
 
-#line 176
+#line 198
 void test_enum(void) {
     Color a = COLOR_RED;
     Color b = COLOR_RED;
@@ -335,7 +369,7 @@ void test_assign(void) {
     i ^= 0xff0;
 }
 
-#line 206
+#line 228
 void benchmark(int n) {
     int r = 1;
     for (int i = 1; (i) <= (n); i++) {
@@ -347,7 +381,7 @@ int va_test(int x, ...) {
     return 0;
 }
 
-#line 219
+#line 241
 void test_lits(void) {
     float f = 3.140000f;
     double d = 3.140000;
@@ -393,7 +427,7 @@ void test_ops(void) {
     b = (p) && (pi);
 }
 
-#line 266
+#line 288
 void test_bool(void) {
     bool b = false;
     b = true;
@@ -408,18 +442,18 @@ int test_ctrl(void) {
         break;
     }
     default: {
-        #line 278
+        #line 300
         return 1;
         break;
     }
     }
 }
 
-#line 287
+#line 309
 void f4(char const ((*x))) {
 }
 
-#line 294
+#line 316
 void f5(int const ((*p))) {
 }
 
@@ -433,22 +467,22 @@ void test_convert(void) {
 
 void test_const(void) {
     ConstVector cv2 = {1, 2};
-    #line 308
+    #line 330
     int i = 0;
     i = 1;
-    #line 312
+    #line 334
     int x = cv.x;
-    #line 314
+    #line 336
     char c = escape_to_char[0];
-    #line 316
+    #line 338
     (f4)(escape_to_char);
     char const ((*p)) = (char const (*))(0);
     p = (escape_to_char) + (1);
     char (*q) = (char *)(escape_to_char);
     c = q['n'];
-    #line 322
+    #line 344
     p = (char const (*))(1);
-    #line 325
+    #line 347
     i = (int)((ullong)(p));
 }
 
@@ -466,9 +500,9 @@ void test_init(void) {
 void test_cast(void) {
     int (*p) = 0;
     uint64 a = 0;
-    #line 343
+    #line 365
     a = (uint64)(p);
-    #line 345
+    #line 367
     p = (int *)(a);
 }
 

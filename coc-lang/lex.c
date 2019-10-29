@@ -184,6 +184,7 @@ const char *token_kind_names[] = {
     [TOKEN_STR] = "string",
     [TOKEN_NAME] = "name",
     [TOKEN_NEG] = "~",
+    [TOKEN_NOT] = "!",
     [TOKEN_MUL] = "*",
     [TOKEN_DIV] = "/",
     [TOKEN_MOD] = "%",
