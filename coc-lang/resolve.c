@@ -151,7 +151,6 @@ void sym_global_func(const char *name, Type *type) {
 Sym *sym_global_decl(Decl *decl) {
     Sym *sym = sym_decl(decl);
     sym_global_put(sym);
-    decl->sym = sym;
     if (decl->kind == DECL_ENUM) {
         sym->state = SYM_RESOLVED;
         sym->type = type_enum(sym);
@@ -439,6 +438,17 @@ void unify_arithmetic_operands(Operand *left, Operand *right) {
     assert(left->type == right->type);
 }
 
+
+Map resolved_type_map;
+
+Type *get_resolved_type(void *ptr) {
+    return map_get(&resolved_type_map, ptr);
+}
+
+void set_resolved_type(void *ptr, Type *type) {
+    map_put(&resolved_type_map, ptr, type);
+}
+
 Sym *resolve_name(const char *name);
 Operand resolve_const_expr(Expr *expr);
 Operand resolve_expected_expr(Expr *expr, Type *expected_type);
@@ -515,8 +525,7 @@ Type *resolve_typespec(Typespec *typespec) {
         assert(0);
         return NULL;
     }
-    assert(!typespec->type || typespec->type == result);
-    typespec->type = result;
+    set_resolved_type(typespec, result);
     return result;
 }
 
@@ -630,8 +639,8 @@ bool resolve_stmt(Stmt *stmt, Type *ret_type);
 
 void resolve_cond_expr(Expr *expr) {
     Operand cond = resolve_expr(expr);
-    if (!is_arithmetic_type(cond.type) && !is_ptr_type(cond.type)) {
-        fatal_error(expr->pos, "Conditional expression must have arithmetic or pointer type");
+    if (!is_scalar_type(cond.type)) {
+        fatal_error(expr->pos, "Conditional expression must have operand type");
     }
 }
 
@@ -760,15 +769,24 @@ bool resolve_stmt(Stmt *stmt, Type *ret_type) {
         return false;
     case STMT_FOR: {
         Sym *scope = sym_enter();
-        resolve_stmt(stmt->for_stmt.init, ret_type);
-        resolve_cond_expr(stmt->for_stmt.cond);
+        if (stmt->for_stmt.init) {
+            resolve_stmt(stmt->for_stmt.init, ret_type);
+        }
+        if (stmt->for_stmt.cond) {
+            resolve_cond_expr(stmt->for_stmt.cond);
+        }
         resolve_stmt_block(stmt->for_stmt.block, ret_type);
-        resolve_stmt(stmt->for_stmt.next, ret_type);
+        if (stmt->for_stmt.next) {
+            resolve_stmt(stmt->for_stmt.next, ret_type);
+        }
         sym_leave(scope);
         return false;
     }
     case STMT_SWITCH: {
-        Operand expr = resolve_expr(stmt->switch_stmt.expr);
+        Operand operand = resolve_expr(stmt->switch_stmt.expr);
+        if (!is_integer_type(operand.type)) {
+            fatal_error(stmt->pos, "Switch expression must have integer type");
+        }
         bool returns = true;
         bool has_default = false;
         for (size_t i = 0; i < stmt->switch_stmt.num_cases; i++) {
@@ -776,7 +794,7 @@ bool resolve_stmt(Stmt *stmt, Type *ret_type) {
             for (size_t j = 0; j < switch_case.num_exprs; j++) {
                 Expr *case_expr = switch_case.exprs[j];
                 Operand case_operand = resolve_expr(case_expr);
-                if (!convert_operand(&case_operand, expr.type)) {
+                if (!convert_operand(&case_operand, operand.type)) {
                     fatal_error(case_expr->pos, "Invalid type in switch case expression");
                 }
                 returns = resolve_stmt_block(switch_case.block, ret_type) && returns;
@@ -1673,10 +1691,7 @@ Operand resolve_expected_expr(Expr *expr, Type *expected_type) {
         result = operand_null;
         break;
     }
-    if (result.type) {
-        assert(!expr->type || expr->type == result.type);
-        expr->type = result.type;
-    }
+    set_resolved_type(expr, result.type);
     return result;
 }
 
@@ -1718,7 +1733,7 @@ void init_builtins(void) {
     sym_global_const("NULL", type_ptr(type_void), (Val){.p = 0});
 }
 
-void sym_global_decls() {
+void sym_global_decls(void) {
     for (size_t i = 0; i < global_decls->num_decls; i++) {
         Decl *decl = global_decls->decls[i];
         if (decl->kind != DECL_NOTE) {

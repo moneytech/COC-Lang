@@ -701,7 +701,7 @@ Note parse_note(void) {
     return new_note(pos, name, args, buf_len(args));
 }
 
-NoteList parse_note_list(void) {
+Notes parse_note_list(void) {
     Note *notes = NULL;
     while (match_token(TOKEN_AT)) {
         buf_push(notes, parse_note());
@@ -745,7 +745,7 @@ Decl *parse_decl_opt(void) {
 }
 
 Decl *parse_decl(void) {
-    NoteList notes = parse_note_list();
+    Notes notes = parse_note_list();
     Decl *decl = parse_decl_opt();
     if (!decl) {
         fatal_error_here("Expected declaration keyword, got %s", token_info());
@@ -754,12 +754,10 @@ Decl *parse_decl(void) {
     return decl;
 }
 
-Decls *parse_file(void) {
+Decls *parse_decls(void) {
     Decl **decls = NULL;
     while (!is_token(TOKEN_EOF)) {
-        Decl *decl = parse_decl();
-        assert(decl);
-        buf_push(decls, decl);
+        buf_push(decls, parse_decl());
     }
     return new_decls(decls, buf_len(decls));
 }

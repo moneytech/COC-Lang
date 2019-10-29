@@ -285,7 +285,8 @@ void gen_expr_compound(Expr *expr, bool is_init) {
         genf("(%s){", typespec_to_cdecl(expr->compound.type, ""));
     } 
     else {
-        genf("(%s){", type_to_cdecl(expr->type, ""));
+        genf("(%s){", type_to_cdecl(get_resolved_type(expr), ""));
+
     }
     for (size_t i = 0; i < expr->compound.num_fields; i++) {
         if (i != 0) {
@@ -339,7 +340,7 @@ void gen_expr(Expr *expr) {
         genf("%s", expr->name);
         break;
     case EXPR_CAST:
-        genf("(%s)(", type_to_cdecl(expr->cast.type->type, ""));
+        genf("(%s)(", type_to_cdecl(get_resolved_type(expr->cast.type), ""));
         gen_expr(expr->cast.expr);
         genf(")");
         break;
@@ -364,7 +365,7 @@ void gen_expr(Expr *expr) {
         break;
     case EXPR_FIELD:
         gen_expr(expr->field.expr);
-        genf("%s%s", expr->field.expr->type->kind == TYPE_PTR ? "->" : ".", expr->field.name);
+        genf("%s%s", get_resolved_type(expr->field.expr)->kind == TYPE_PTR ? "->" : ".", expr->field.name);
         break;
     case EXPR_COMPOUND:
         gen_expr_compound(expr, false);
@@ -396,7 +397,7 @@ void gen_expr(Expr *expr) {
         genf(")");
         break;
     case EXPR_SIZEOF_TYPE:
-        genf("sizeof(%s)", type_to_cdecl(expr->sizeof_type->type, ""));
+        genf("sizeof(%s)", type_to_cdecl(get_resolved_type(expr->sizeof_type), ""));
         break;
     default:
         assert(0);
@@ -432,7 +433,7 @@ void gen_simple_stmt(Stmt *stmt) {
     case STMT_INIT:
         if (stmt->init.type) {
             if (is_incomplete_array_typespec(stmt->init.type)) {
-                genf("%s", type_to_cdecl(stmt->init.expr->type, stmt->init.name));
+                genf("%s", type_to_cdecl(get_resolved_type(stmt->init.expr), stmt->init.name));
             } 
             else {
                 genf("%s", typespec_to_cdecl(stmt->init.type, stmt->init.name));
@@ -443,7 +444,7 @@ void gen_simple_stmt(Stmt *stmt) {
             }
         } 
         else {
-            genf("%s = ", type_to_cdecl(unqualify_type(stmt->init.expr->type), stmt->init.name));
+            genf("%s = ", type_to_cdecl(unqualify_type(get_resolved_type(stmt->init.expr)), stmt->init.name));
             gen_init_expr(stmt->init.expr);
         }
         break;

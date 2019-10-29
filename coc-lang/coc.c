@@ -5,7 +5,7 @@ bool coc_compile_file(const char *path) {
     }
     init_stream(path, str);
     init_builtins();
-    global_decls = parse_file();
+    global_decls = parse_decls();
     sym_global_decls();
     finalize_syms();
     gen_all();
@@ -24,7 +24,8 @@ bool coc_compile_file(const char *path) {
 const char *coc_compile_str(const char *str) {
     init_stream(NULL, str);
     init_builtins();
-    sym_global_decls(parse_file());
+    global_decls = parse_decls();
+    sym_global_decls();
     finalize_syms();
     gen_all();
     const char *result = gen_buf;

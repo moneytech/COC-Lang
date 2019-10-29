@@ -16,10 +16,10 @@ typedef struct Note {
     size_t num_args;
 } Note;
 
-typedef struct NoteList {
+typedef struct Notes {
     Note *notes;
     size_t num_notes;
-} NoteList;
+} Notes;
 
 struct Type;
 
@@ -48,8 +48,8 @@ struct Typespec {
         struct {
             Typespec **args;
             size_t num_args;
-            Typespec *ret;
             bool has_varargs;
+            Typespec *ret;
         } func;
         Expr *num_elems;
     };
@@ -91,7 +91,7 @@ struct Decl {
     SrcPos pos;
     const char *name;
     struct Sym *sym;
-    NoteList notes;
+    Notes notes;
     union {
         Note note;
         struct {

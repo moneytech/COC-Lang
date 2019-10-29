@@ -246,8 +246,16 @@ uint64_t hash_ptr(void *ptr) {
     return hash_uint64((uintptr_t)ptr);
 }
 
-uint64_t hash_bytes(const char *buf, size_t len) {
+uint64_t hash_mix(uint64_t x, uint64_t y) {
+    x ^= y;
+    x *= 0xff51afd7ed558ccd;
+    x ^= x >> 32;
+    return x;
+}
+
+uint64_t hash_bytes(const void *ptr, size_t len) {
     uint64_t x = 0xcbf29ce484222325;
+    const char *buf = (const char *)ptr;
     for (size_t i = 0; i < len; i++) {
         x ^= buf[i];
         x *= 0x100000001b3;
