@@ -27,7 +27,7 @@ const char *foreign_name;
 #define KEYWORD(name) name##_keyword = str_intern(#name); buf_push(keywords, name##_keyword)
 
 void init_keywords(void) {
-    static int inited;
+    static bool inited;
     if (inited) {
         return;
     }
@@ -61,7 +61,7 @@ void init_keywords(void) {
 
 #undef KEYWORD
 
-int is_keyword_name(const char *name) {
+bool is_keyword_name(const char *name) {
     return (first_keyword <= name && name <= last_keyword);
 }
 
@@ -134,12 +134,32 @@ typedef enum TokenKind {
 } TokenKind;
 
 typedef enum TokenMod {
-    TOKENMOD_NONE,
-    TOKENMOD_HEX,
-    TOKENMOD_BIN,
-    TOKENMOD_OCT,
-    TOKENMOD_CHAR,
+    MOD_NONE,
+    MOD_HEX,
+    MOD_BIN,
+    MOD_OCT,
+    MOD_CHAR,
 } TokenMod;
+
+typedef enum TokenSuffix {
+    SUFFIX_NONE,
+    SUFFIX_D,
+    SUFFIX_U,
+    SUFFIX_L,
+    SUFFIX_UL,
+    SUFFIX_LL,
+    SUFFIX_ULL,
+} TokenSuffix;
+
+const char *token_suffix_names[] = {
+    [SUFFIX_NONE] = "",
+    [SUFFIX_D] = "d",
+    [SUFFIX_U] = "u",
+    [SUFFIX_L] = "l",
+    [SUFFIX_UL] = "ul",
+    [SUFFIX_LL] = "ll",
+    [SUFFIX_ULL] = "ull",
+};
 
 const char *token_kind_names[] = {
     [TOKEN_EOF] = "EOF",
@@ -210,14 +230,17 @@ typedef struct SrcPos {
     int line;
 } SrcPos;
 
+SrcPos pos_builtin = {.name = "<builtin>"};
+
 typedef struct Token {
     TokenKind kind;
     TokenMod mod;
+    TokenSuffix suffix;
     SrcPos pos;
     const char *start;
     const char *end;
     union {
-        int int_val;
+        unsigned long long int_val;
         double float_val;
         const char *str_val;
         const char *name;
@@ -229,6 +252,9 @@ const char *stream;
 const char *line_start;
 
 void error(SrcPos pos, const char *fmt, ...) {
+    if (pos.name == NULL) {
+        pos = pos_builtin;
+    }
     va_list args;
     va_start(args, fmt);
     printf("%s(%d): error: ", pos.name, pos.line);
@@ -239,7 +265,7 @@ void error(SrcPos pos, const char *fmt, ...) {
 
 #define fatal_error(...) (error(__VA_ARGS__), exit(1))
 #define syntax_error(...) (error(token.pos, __VA_ARGS__))
-#define fatal_syntax_error(...) (syntax_error(__VA_ARGS__), exit(1))
+#define fatal_error_here(...) (syntax_error(__VA_ARGS__), exit(1))
 
 const char *token_info(void) {
     if (token.kind == TOKEN_NAME || token.kind == TOKEN_KEYWORD) {
@@ -275,30 +301,30 @@ void scan_int(void) {
         stream++;
         if (tolower(*stream) == 'x') {
             stream++;
-            token.mod = TOKENMOD_HEX;
+            token.mod = MOD_HEX;
             base = 16;
         } 
         else if (tolower(*stream) == 'b') {
             stream++;
-            token.mod = TOKENMOD_BIN;
+            token.mod = MOD_BIN;
             base = 2;
         } 
         else if (isdigit(*stream)) {
-            token.mod = TOKENMOD_OCT;
+            token.mod = MOD_OCT;
             base = 8;
         }
     }
-    int val = 0;
+    unsigned long long val = 0;
     for (;;) {
         int digit = char_to_digit[(unsigned char)*stream];
         if (digit == 0 && *stream != '0') {
             break;
         }
         if (digit >= base) {
-            syntax_error("Digit '%c' out of range for base %" PRIu64, *stream, base);
+            syntax_error("Digit '%c' out of range for base %d", *stream, base);
             digit = 0;
         }
-        if (val > (INT_MAX - digit)/base) {
+        if (val > (ULLONG_MAX - digit)/base) {
             syntax_error("Integer literal overflow");
             while (isdigit(*stream)) {
                 stream++;
@@ -311,6 +337,26 @@ void scan_int(void) {
     }
     token.kind = TOKEN_INT;
     token.int_val = val;
+    if (tolower(*stream) == 'u') {
+        token.suffix = SUFFIX_U;
+        stream++;
+        if (tolower(*stream) == 'l') {
+            token.suffix = SUFFIX_UL;
+            stream++;
+            if (tolower(*stream) == 'l') {
+                token.suffix = SUFFIX_ULL;
+                stream++;
+            }
+        }
+    } 
+    else if (tolower(*stream) == 'l') {
+        token.suffix = SUFFIX_L;
+        stream++;
+        if (tolower(*stream) == 'l') {
+            token.suffix = SUFFIX_LL;
+            stream++;
+        }
+    }
 }
 
 void scan_float(void) {
@@ -342,6 +388,10 @@ void scan_float(void) {
     }
     token.kind = TOKEN_FLOAT;
     token.float_val = val;
+    if (tolower(*stream) == 'd') {
+        token.suffix = SUFFIX_D;
+        stream++;
+    }
 }
 
 char escape_to_char[256] = {
@@ -385,7 +435,7 @@ void scan_char(void) {
     }
     token.kind = TOKEN_INT;
     token.int_val = val;
-    token.mod = TOKENMOD_CHAR;
+    token.mod = MOD_CHAR;
 }
 
 void scan_str(void) {
@@ -453,6 +503,7 @@ void next_token(void) {
 repeat:
     token.start = stream;
     token.mod = 0;
+    token.suffix = 0;
     switch (*stream) {
     case ' ': case '\n': case '\r': case '\t': case '\v':
         while (isspace(*stream)) {
@@ -598,23 +649,23 @@ void init_stream(const char *name, const char *buf) {
 }
 
 // Utility functions for lexing and parsing
-int is_token(TokenKind kind) {
+bool is_token(TokenKind kind) {
     return token.kind == kind;
 }
 
-int is_token_eof(void) {
+bool is_token_eof(void) {
     return token.kind == TOKEN_EOF;
 }
 
-int is_token_name(const char *name) {
+bool is_token_name(const char *name) {
     return token.kind == TOKEN_NAME && token.name == name;
 }
 
-int is_keyword(const char *name) {
+bool is_keyword(const char *name) {
     return is_token(TOKEN_KEYWORD) && token.name == name;
 }
 
-int match_keyword(const char *name) {
+bool match_keyword(const char *name) {
     if (is_keyword(name)) {
         next_token();
         return true;
@@ -624,7 +675,7 @@ int match_keyword(const char *name) {
     }
 }
 
-int match_token(TokenKind kind) {
+bool match_token(TokenKind kind) {
     if (is_token(kind)) {
         next_token();
         return true;
@@ -634,13 +685,13 @@ int match_token(TokenKind kind) {
     }
 }
 
-int expect_token(TokenKind kind) {
+bool expect_token(TokenKind kind) {
     if (is_token(kind)) {
         next_token();
         return true;
     } 
     else {
-        fatal_syntax_error("Expected token %s, got %s", token_kind_name(kind), token_info());
+        fatal_error_here("Expected token %s, got %s", token_kind_name(kind), token_info());
         return false;
     }
 }
@@ -670,11 +721,11 @@ void lex_test(void) {
     init_stream(NULL, "0 2147483647 0x7fffffff 042 0b1111");
     assert_token_int(0);
     assert_token_int(2147483647);
-    assert(token.mod == TOKENMOD_HEX);
+    assert(token.mod == MOD_HEX);
     assert_token_int(0x7fffffff);
-    assert(token.mod == TOKENMOD_OCT);
+    assert(token.mod == MOD_OCT);
     assert_token_int(042);
-    assert(token.mod == TOKENMOD_BIN);
+    assert(token.mod == MOD_BIN);
     assert_token_int(0xF);
     assert_token_eof();
 

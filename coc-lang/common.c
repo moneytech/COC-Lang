@@ -17,7 +17,6 @@ void fatal(const char *fmt, ...) {
     exit(1);
 }
 
-
 void *xcalloc(size_t num_elems, size_t elem_size) {
     void *ptr = calloc(num_elems, elem_size);
     if (!ptr) {
@@ -82,7 +81,7 @@ char *read_file(const char *path) {
     return buf;
 }
 
-int write_file(const char *path, const char *buf, size_t len) {
+bool write_file(const char *path, const char *buf, size_t len) {
     FILE *file = fopen(path, "w");
     if (!file) {
         return false;
@@ -375,6 +374,24 @@ const char *str_intern(const char *str) {
     return str_intern_range(str, str + strlen(str));
 }
 
+// Value union
+
+typedef union Val {
+    bool b;
+    char c;
+    unsigned char uc;
+    signed char sc;
+    short s;
+    unsigned short us;
+    int i;
+    unsigned u;
+    long l;
+    unsigned long ul;
+    long long ll;
+    unsigned long long ull;
+    uintptr_t p;
+} Val;
+
 void intern_test(void) {
     char a[] = "hello";
     assert(strcmp(a, str_intern(a)) == 0);
@@ -390,6 +407,7 @@ void intern_test(void) {
 }
 
 // Common Tests
+
 void common_test(void) {
     buf_test();
     intern_test();

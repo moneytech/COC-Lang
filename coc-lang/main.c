@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -13,6 +14,7 @@
 
 #include "common.c"
 #include "lex.c"
+#include "type.c"
 #include "ast.h"
 #include "ast.c"    
 #include "print.c"

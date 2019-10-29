@@ -5,7 +5,7 @@ void print_decl(Decl *decl);
 int indent;
 
 char *print_buf;
-int use_print_buf;
+bool use_print_buf;
 
 #define printf(...) (use_print_buf ? (void)buf_printf(print_buf, __VA_ARGS__) : (void)printf(__VA_ARGS__))
 
@@ -45,14 +45,14 @@ void print_typespec(Typespec *type) {
         break;
     case TYPESPEC_ARRAY:
         printf("(array ");
-        print_typespec(t->array.elem);
+        print_typespec(t->base);
         printf(" ");
-        print_expr(t->array.size);
+        print_expr(t->num_elems);
         printf(")");
         break;
     case TYPESPEC_PTR:
         printf("(ptr ");
-        print_typespec(t->ptr.elem);
+        print_typespec(t->base);
         printf(")");
         break;
     default:
@@ -65,10 +65,10 @@ void print_expr(Expr *expr) {
     Expr* e = expr;
     switch (e->kind) {
     case EXPR_INT:
-        printf("%d", e->int_val);
+        printf("%llu", e->int_lit.val);
         break;
     case EXPR_FLOAT:
-        printf("%f", e->float_val);
+        printf("%f", e->float_lit.val);
         break;
     case EXPR_STR:
         printf("\"%s\"", e->str_val);
@@ -345,7 +345,7 @@ void print_decl(Decl *decl) {
         break;
     case DECL_VAR:
         printf("(var %s ", d->name);
-        if (d->var.type){
+        if (d->var.type) {
             print_typespec(d->var.type);
         }
         else {
