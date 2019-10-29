@@ -15,6 +15,7 @@ typedef enum TypeKind {
     TYPE_ULONG,
     TYPE_LLONG,
     TYPE_ULLONG,
+    TYPE_ENUM,
     TYPE_FLOAT,
     TYPE_DOUBLE,
     TYPE_PTR,
@@ -22,7 +23,6 @@ typedef enum TypeKind {
     TYPE_ARRAY,
     TYPE_STRUCT,
     TYPE_UNION,
-    TYPE_ENUM,
     TYPE_CONST,
     NUM_TYPE_KINDS,
 } TypeKind;
@@ -36,11 +36,6 @@ typedef struct TypeField {
     size_t offset;
 } TypeField;
 
-typedef struct EnumField {
-    const char *name;
-    Val val;
-} EnumField;
-
 struct Type {
     TypeKind kind;
     size_t size;
@@ -50,10 +45,6 @@ struct Type {
     bool nonmodifiable;
     union {
         size_t num_elems;
-        struct {
-            EnumField *fields;
-            size_t num_fields;
-        } enum_type;
         struct {
             TypeField *fields;
             size_t num_fields;
@@ -114,7 +105,7 @@ bool is_incomplete_array_type(Type *type) {
 }
 
 bool is_integer_type(Type *type) {
-    return TYPE_BOOL <= type->kind && type->kind <= TYPE_ULLONG;
+    return TYPE_BOOL <= type->kind && type->kind <= TYPE_ENUM;
 }
 
 bool is_floating_type(Type *type) {
@@ -375,9 +366,10 @@ Type *type_incomplete(Sym *sym) {
     return type;
 }
 
-Type *type_enum(EnumField *fields, size_t num_fields) {
+Type *type_enum(Sym *sym) {
     Type *type = type_alloc(TYPE_ENUM);
-    type->enum_type.fields = memdup(fields, num_fields * sizeof(*fields));
-    type->enum_type.num_fields = num_fields;
+    type->sym = sym;
+    type->size = type_int->size;
+    type->align = type_int->align;
     return type;
 }

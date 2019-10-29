@@ -26,10 +26,19 @@ typedef struct S2 S2;
 typedef union IntOrPtr IntOrPtr;
 typedef struct Vector Vector;
 typedef struct T T;
+typedef enum Color Color;
 typedef struct ConstVector ConstVector;
 
 // Sorted declarations
-#line 10 "test1.coc"
+#line 161 "test1.coc"
+enum Color {
+    COLOR_NONE,
+    COLOR_RED,
+    COLOR_GREEN,
+    COLOR_BLUE,
+};
+
+#line 10
 #define PI (3.140000f)
 
 #line 11
@@ -45,13 +54,20 @@ schar sc = 1;
 
 #define N ((((char)(42)) + (8)) != (0))
 
-#line 53
+#line 60
 uchar h(void);
 
 #line 19
 typedef int (A[(1) + ((2) * (sizeof((h)())))]);
 
-char (*code) = "\n#include <stdio.h>\n\nint main(int argc, char **argv) {\n    printf(\"Hello, world!\\n\");\n    return 0;\n}\n";
+char (*code) = 
+    "\n"
+    "#include <stdio.h>\n"
+    "\n"
+    "int main(int argc, char **argv) {\n"
+    "    printf(\"Hello, world!\\n\");\n"
+    "    return 0;\n"
+    "}\n";
 
 struct S1 {
     int a;
@@ -64,133 +80,137 @@ struct S2 {
 
 void f10(int (a[3]));
 
-#line 36
+#line 43
 void test_arrays(void);
 
-#line 41
+#line 48
 void test_nonmodifiable(void);
 
-#line 122
+#line 129
 struct Vector {
     int x;
-    #line 123
+    #line 130
     int y;
 };
 
-#line 80
+#line 87
 typedef IntOrPtr U;
 
-#line 86
+#line 93
 union IntOrPtr {
     int i;
     int (*p);
 };
 
-#line 63
+#line 70
 int g(U u);
 
-#line 67
+#line 74
 void k(void (*vp), int (*ip));
 
-#line 72
+#line 79
 void f1(void);
 
-#line 77
+#line 84
 void f3(int (a[]));
 
-#line 82
+#line 89
 int example_test(void);
 
-#line 138
+#line 145
 int fact_rec(int n);
 
-#line 130
+#line 137
 int fact_iter(int n);
 
-#line 91
+#line 98
 char const ((escape_to_char[256])) = {['n'] = '\n', ['r'] = '\r', ['t'] = '\t', ['v'] = '\v', ['b'] = '\b', ['a'] = '\a', ['0'] = 0};
 
-#line 101
-int (a2[18321454311407627]) = {1, 2, 3, [10] = 4};
+#line 108
+int (a2[18324301874724875]) = {1, 2, 3, [10] = 4};
 
-#line 104
+#line 111
 int is_even(int digit);
 
-#line 120
+#line 127
 int i;
 
-#line 126
+#line 133
 void f2(Vector v);
 
-#line 148
+#line 155
 T (*p);
 
-#line 146
+#line 153
 #define M ((1) + (sizeof(p)))
 
-#line 150
+#line 157
 struct T {
     int (a[M]);
 };
 
+#line 168
+void test_enum(void);
+
+#line 177
 void benchmark(int n);
 
-#line 161
+#line 184
 int va_test(int x, ...);
 
-#line 165
+#line 188
 typedef int (*F)(int, ...);
 
 void test_lits(void);
 
-#line 182
+#line 205
 void test_ops(void);
 
-#line 212
+#line 235
 #define IS_DEBUG (true)
 
 void test_bool(void);
 
-#line 221
+#line 244
 int test_ctrl(void);
 
-#line 231
+#line 254
 int const (j);
 
-#line 232
+#line 255
 int const ((*q));
 
-#line 233
+#line 256
 Vector const (cv);
 
 void f4(char const ((*x)));
 
-#line 238
+#line 261
 struct ConstVector {
     int const (x);
-    #line 239
+    #line 262
     int const (y);
 };
 
 void f5(int const ((*p)));
 
-#line 245
+#line 268
 void test_convert(void);
 
-#line 253
+#line 276
 void test_const(void);
 
-#line 276
+#line 299
 void test_init(void);
 
-#line 287
+#line 310
 void test_cast(void);
 
-#line 296
+#line 319
 int main(int argc, char const ((*(*argv))));
 
 // Function definitions
-#line 32
+#line 39
 void f10(int (a[3])) {
     a[1] = 42;
 }
@@ -203,12 +223,12 @@ void test_arrays(void) {
 void test_nonmodifiable(void) {
     S1 s1;
     s1.a = 0;
-    #line 46
+    #line 53
     S2 s2;
     s2.s1.a = 0;
 }
 
-#line 53
+#line 60
 uchar h(void) {
     (Vector){.x = 1, .y = 2}.x = 42;
     Vector (*v) = &((Vector){1, 2});
@@ -236,12 +256,12 @@ void f1(void) {
 void f3(int (a[])) {
 }
 
-#line 82
+#line 89
 int example_test(void) {
     return ((fact_rec)(10)) == ((fact_iter)(10));
 }
 
-#line 104
+#line 111
 int is_even(int digit) {
     int b = 0;
     switch (digit) {
@@ -250,16 +270,16 @@ int is_even(int digit) {
     case 4:
     case 6:
     case 8: {
-        #line 108
+        #line 115
         b = 1;
         break;
     }
     }
-    #line 110
+    #line 117
     return b;
 }
 
-#line 126
+#line 133
 void f2(Vector v) {
     v = (Vector){0};
 }
@@ -280,7 +300,16 @@ int fact_rec(int n) {
     }
 }
 
-#line 154
+#line 168
+void test_enum(void) {
+    Color a = COLOR_RED;
+    Color b = COLOR_RED;
+    int c = (a) + (b);
+    int i = a;
+    a = i;
+    (printf)("%d %d %d %d\n", COLOR_NONE, COLOR_RED, COLOR_GREEN, COLOR_BLUE);
+}
+
 void benchmark(int n) {
     int r = 1;
     for (int i = 1; (i) <= (n); i++) {
@@ -292,7 +321,7 @@ int va_test(int x, ...) {
     return 0;
 }
 
-#line 167
+#line 190
 void test_lits(void) {
     float f = 3.140000f;
     double d = 3.140000;
@@ -338,7 +367,7 @@ void test_ops(void) {
     b = (p) && (pi);
 }
 
-#line 214
+#line 237
 void test_bool(void) {
     bool b = false;
     b = true;
@@ -356,11 +385,11 @@ int test_ctrl(void) {
     return 0;
 }
 
-#line 235
+#line 258
 void f4(char const ((*x))) {
 }
 
-#line 242
+#line 265
 void f5(int const ((*p))) {
 }
 
@@ -374,22 +403,22 @@ void test_convert(void) {
 
 void test_const(void) {
     ConstVector cv2 = {1, 2};
-    #line 256
+    #line 279
     int i = 0;
     i = 1;
-    #line 260
+    #line 283
     int x = cv.x;
-    #line 262
+    #line 285
     char c = escape_to_char[0];
-    #line 264
+    #line 287
     (f4)(escape_to_char);
     char const ((*p)) = (char const (*))(0);
     p = (escape_to_char) + (1);
     char (*q) = (char *)(escape_to_char);
     c = q['n'];
-    #line 270
+    #line 293
     p = (char const (*))(1);
-    #line 273
+    #line 296
     i = (int)((ullong)(p));
 }
 
@@ -407,9 +436,9 @@ void test_init(void) {
 void test_cast(void) {
     int (*p) = 0;
     uint64 a = 0;
-    #line 291
+    #line 314
     a = (uint64)(p);
-    #line 293
+    #line 316
     p = (int *)(a);
 }
 
@@ -417,6 +446,7 @@ int main(int argc, char const ((*(*argv)))) {
     if ((argv) == (0)) {
         (printf)("argv is null\n");
     }
+    (test_enum)();
     (test_arrays)();
     (test_cast)();
     (test_init)();
