@@ -25,6 +25,7 @@ enum {
     MAX_LOCAL_SYMS = 1024
 };
 
+Decls *global_decls;
 Sym **sorted_syms;
 Map global_syms_map;
 Sym **global_syms_buf;
@@ -125,7 +126,7 @@ void sym_global_type(const char *name, Type *type) {
 }
 
 void sym_global_typedef(const char *name, Type *type) {
-    Sym *sym = sym_new(SYM_TYPE, str_intern(name), decl_typedef(pos_builtin, name, typespec_name(pos_builtin, name)));
+    Sym *sym = sym_new(SYM_TYPE, str_intern(name), new_decl_typedef(pos_builtin, name, new_typespec_name(pos_builtin, name)));
     sym->state = SYM_RESOLVED;
     sym->type = type;
     sym_global_put(sym);
@@ -593,6 +594,12 @@ Type *resolve_decl_const(Decl *decl, Val *val) {
     if (!is_scalar_type(result.type)) {
         fatal_error(decl->pos, "Const declarations must have scalar type");
     }
+    if (decl->const_decl.type) {
+        Type *type = resolve_typespec(decl->const_decl.type);
+        if (!convert_operand(&result, type)) {
+            fatal_error(decl->pos, "Invalid type in constant declaration");
+        }
+    }
     *val = result.val;
     return result.type;
 }
@@ -802,6 +809,9 @@ void resolve_func_body(Sym *sym) {
     Decl *decl = sym->decl;
     assert(decl->kind == DECL_FUNC);
     assert(sym->state == SYM_RESOLVED);
+    if (decl->func.is_incomplete) {
+        return;
+    }
     Sym *scope = sym_enter();
     for (size_t i = 0; i < decl->func.num_params; i++) {
         FuncParam param = decl->func.params[i];
@@ -1708,9 +1718,12 @@ void init_builtins(void) {
     sym_global_const("NULL", type_ptr(type_void), (Val){.p = 0});
 }
 
-void sym_global_decls(DeclSet *declset) {
-    for (size_t i = 0; i < declset->num_decls; i++) {
-        sym_global_decl(declset->decls[i]);
+void sym_global_decls() {
+    for (size_t i = 0; i < global_decls->num_decls; i++) {
+        Decl *decl = global_decls->decls[i];
+        if (decl->kind != DECL_NOTE) {
+            sym_global_decl(global_decls->decls[i]);
+        }
     }
 }
 

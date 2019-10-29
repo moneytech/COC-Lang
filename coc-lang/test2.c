@@ -1,7 +1,8 @@
-// Preamble
-#include <stdio.h>
-#include <stdbool.h>
+// Foreign includes
 #include <math.h>
+
+// Preamble
+#include <stdbool.h>
 
 typedef unsigned char uchar;
 typedef signed char schar;
@@ -24,50 +25,50 @@ typedef llong int64;
 typedef struct vec2 vec2;
 
 // Sorted declarations
-#line 10 "test2.coc"
+#line 12 "test2.coc"
 struct vec2 {
     float x;
-    #line 11
+    #line 13
     float y;
 };
 
 vec2 add2(vec2 a, vec2 b);
 
-#line 18
+#line 20
 vec2 sub2(vec2 a, vec2 b);
 
-#line 22
+#line 24
 vec2 neg2(vec2 a);
 
-#line 26
+#line 28
 vec2 mul2(float a, vec2 b);
 
-#line 30
+#line 32
 vec2 addmul2(vec2 a, float b, vec2 c);
 
-#line 34
+#line 36
 float dot2(vec2 a, vec2 b);
 
-#line 38
+#line 40
 float len2(vec2 a);
 
-#line 42
+#line 44
 vec2 unit2(vec2 a);
 
-#line 46
+#line 48
 vec2 perp2(vec2 a);
 
-#line 50
+#line 52
 vec2 dir2(vec2 a, vec2 b);
 
-#line 54
+#line 56
 vec2 rot2(float a, vec2 b);
 
-#line 60
+#line 62
 int main(int argc, char (*(*argv)));
 
 // Function definitions
-#line 14
+#line 16
 vec2 add2(vec2 a, vec2 b) {
     return (vec2){(a.x) + (b.x), (a.y) + (b.y)};
 }
