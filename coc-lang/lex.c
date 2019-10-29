@@ -55,14 +55,16 @@ void init_keywords(void) {
     assert(intern_arena.end == arena_end);
     first_keyword = typedef_keyword;
     last_keyword = default_keyword;
+
     foreign_name = str_intern("foreign");
+
     inited = true;
 }
 
 #undef KEYWORD
 
 bool is_keyword_name(const char *name) {
-    return (first_keyword <= name && name <= last_keyword);
+    return first_keyword <= name && name <= last_keyword;
 }
 
 typedef enum TokenKind {
@@ -328,21 +330,25 @@ uint8_t char_to_digit[256] = {
 
 void scan_int(void) {
     int base = 10;
+    const char *start_digits = stream;
     if (*stream == '0') {
         stream++;
         if (tolower(*stream) == 'x') {
             stream++;
             token.mod = MOD_HEX;
             base = 16;
+            start_digits = stream;
         } 
         else if (tolower(*stream) == 'b') {
             stream++;
             token.mod = MOD_BIN;
             base = 2;
+            start_digits = stream;
         } 
         else if (isdigit(*stream)) {
             token.mod = MOD_OCT;
             base = 8;
+            start_digits = stream;
         }
     }
     unsigned long long val = 0;
@@ -365,6 +371,9 @@ void scan_int(void) {
         }
         val = val*base + digit;
         stream++;
+    }
+    if (stream == start_digits) {
+        error_here("Expected base %d digit, got '%c'", base, *stream);
     }
     token.kind = TOKEN_INT;
     token.int_val = val;
@@ -523,7 +532,6 @@ void scan_str(void) {
     token.kind = TOKEN_STR;
     token.str_val = str;
 }
-
 
 #define CASE1(c1, k1) \
     case c1: \

@@ -795,7 +795,6 @@ bool resolve_stmt(Stmt *stmt, Type *ret_type, StmtCtx ctx) {
         if (stmt->for_stmt.cond) {
             resolve_cond_expr(stmt->for_stmt.cond);
         }
-        resolve_stmt_block(stmt->for_stmt.block, ret_type, ctx);
         if (stmt->for_stmt.next) {
             resolve_stmt(stmt->for_stmt.next, ret_type, ctx);
         }
@@ -1751,6 +1750,7 @@ void init_builtins(void) {
     sym_global_type("llong", type_llong);
     sym_global_type("ullong", type_ullong);
     sym_global_type("float", type_float);
+    sym_global_type("double", type_double);
 
     sym_global_typedef("uint8", type_uchar);
     sym_global_typedef("int8", type_schar);

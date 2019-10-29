@@ -213,29 +213,31 @@ char *typespec_to_cdecl(Typespec *typespec, const char *str) {
 
 void gen_func_decl(Decl *decl) {
     assert(decl->kind == DECL_FUNC);
-    gen_sync_pos(decl->pos);
-    if (decl->func.ret_type) {
-        genlnf("%s(", typespec_to_cdecl(decl->func.ret_type, decl->name));
-    } 
-    else {
-        genlnf("void %s(", decl->name);
-    }
+    char *result = NULL;
+    buf_printf(result, "%s(", decl->name);
     if (decl->func.num_params == 0) {
-        genf("void");
+        buf_printf(result, "void");
     } 
     else {
         for (size_t i = 0; i < decl->func.num_params; i++) {
             FuncParam param = decl->func.params[i];
             if (i != 0) {
-                genf(", ");
+                buf_printf(result, ", ");
             }
-            genf("%s", typespec_to_cdecl(param.type, param.name));
+            buf_printf(result, "%s", typespec_to_cdecl(param.type, param.name));
         }
     }
     if (decl->func.has_varargs) {
-        genf(", ...");
+        buf_printf(result, ", ...");
     }
-    genf(")");
+    buf_printf(result, ")");
+    gen_sync_pos(decl->pos);
+    if (decl->func.ret_type) {
+        genlnf("%s", typespec_to_cdecl(decl->func.ret_type, result));
+    } 
+    else {
+        genlnf("void %s", result);
+    }
 }
 
 void gen_forward_decls(void) {
@@ -598,15 +600,12 @@ void gen_decl(Sym *sym) {
         genf(")");
         break;
     case DECL_VAR:
+        genlnf("extern ");
         if (decl->var.type && !is_incomplete_array_typespec(decl->var.type)) {
-            genlnf("%s", typespec_to_cdecl(decl->var.type, sym->name));
+            genf("%s", typespec_to_cdecl(decl->var.type, sym->name));
         } 
         else {
-            genlnf("%s", type_to_cdecl(sym->type, sym->name));
-        }
-        if (decl->var.expr) {
-            genf(" = ");
-            gen_init_expr(decl->var.expr);
+            genf("%s", type_to_cdecl(sym->type, sym->name));
         }
         genf(";");
         break;
@@ -637,18 +636,31 @@ void gen_sorted_decls(void) {
     }
 }
 
-void gen_func_defs(void) {
+void gen_defs(void) {
     for (Sym **it = global_syms_buf; it != buf_end(global_syms_buf); it++) {
         Sym *sym = *it;
         Decl *decl = sym->decl;
-        if (decl && decl->kind == DECL_FUNC && !is_decl_foreign(decl)) {
-            if (decl->is_incomplete) {
-                fatal_error(decl->pos, "Incomplete function definition: %s\n", decl->name);
-            }
+        if (!decl || is_decl_foreign(decl) || decl->is_incomplete) {
+            continue;
+        }
+        if (decl->kind == DECL_FUNC) {
             gen_func_decl(decl);
             genf(" ");
             gen_stmt_block(decl->func.block);
-            genln();    
+            genln(); 
+        } 
+        else if (decl->kind == DECL_VAR) {
+            if (decl->var.type && !is_incomplete_array_typespec(decl->var.type)) {
+                genlnf("%s", typespec_to_cdecl(decl->var.type, sym->name));
+            } 
+            else {
+                genlnf("%s", type_to_cdecl(sym->type, sym->name));
+            }
+            if (decl->var.expr) {
+                genf(" = ");
+                gen_init_expr(decl->var.expr);
+            }
+            genf(";");   
         }
     }
 }
@@ -679,7 +691,13 @@ void gen_headers(void) {
                 }
                 if (!found) {
                     buf_push(gen_headers_buf, header_name);
-                    genlnf("#include %s", header_name);
+                    genlnf("#include ");
+                    if (*header_name == '<') {
+                        genf("%s", header_name);
+                    } 
+                    else {
+                        gen_str(header_name, false);
+                    }
                 }
             }
         }
@@ -697,6 +715,6 @@ void gen_all(void) {
     genln();
     genlnf("// Sorted declarations");
     gen_sorted_decls();
-    genlnf("// Function definitions");
-    gen_func_defs();
+    genlnf("// Definitions");
+    gen_defs();
 }
