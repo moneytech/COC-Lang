@@ -10,6 +10,7 @@ const char **gen_headers_buf;
 
 const char *gen_preamble = 
     "// Preamble\n"
+    "#include <stdio.h>\n"
     "#include <stdbool.h>\n"
     "\n"
     "typedef unsigned char uchar;\n"
